@@ -665,4 +665,4 @@ def list_applications():
             "status": a.status,
             "application_date": a.application_date.isoformat(),
         })
-    return jsonify({"success": True, "applications": result})
+    return jsonify({"success": True, "applications": result}) 

@@ -50,4 +50,4 @@ class ProductionConfig(BaseConfig):
     DEBUG = False
     ENV = "production"
     SECRET_KEY = os.getenv("SECRET_KEY")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") 

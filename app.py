@@ -116,4 +116,4 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(debug=app.config.get("DEBUG", False))
+    app.run(debug=app.config.get("DEBUG", False)) 

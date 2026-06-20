@@ -414,4 +414,4 @@ def select_application(application_id):
     if data.get("remarks"):
         app.remarks = data["remarks"]
     db.session.commit()
-    return jsonify({"success": True, "application_id": app.id, "status": app.status})
+    return jsonify({"success": True, "application_id": app.id, "status": app.status}) 

@@ -122,4 +122,4 @@ class Application(db.Model):
     selection_date = db.Column(db.DateTime(timezone=True), nullable=True)
 
     student_profile = db.relationship("StudentProfile", back_populates="applications")
-    drive = db.relationship("PlacementDrive", back_populates="applications")
+    drive = db.relationship("PlacementDrive", back_populates="applications") 

@@ -20,4 +20,4 @@ def role_required(role):
 
 admin_required = role_required("admin")
 company_required = role_required("company")
-student_required = role_required("student")
+student_required = role_required("student") 
