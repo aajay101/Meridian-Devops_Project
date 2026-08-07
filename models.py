@@ -83,9 +83,11 @@ class PlacementDrive(db.Model):
     )
     job_title = db.Column(db.String(120), nullable=False)
     job_description = db.Column(db.Text, nullable=False)
-    eligibility_branch = db.Column(db.String(80), nullable=False)
+    eligibility_branches = db.Column(db.Text, nullable=False, default="[]")
+    eligibility_branch = db.Column(db.String(80), nullable=False)  # DEPRECATED: use eligibility_branches
     eligibility_cgpa = db.Column(db.Float, nullable=False)
     eligibility_year = db.Column(db.Integer, nullable=False)
+    eligibility_year_mode = db.Column(db.String(10), nullable=False, default="exact")
     application_deadline = db.Column(db.DateTime(timezone=True), nullable=False)
     status = db.Column(db.String(30), default="Pending", nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
@@ -116,10 +118,12 @@ class Application(db.Model):
         nullable=False,
     )
     status = db.Column(db.String(30), default="Applied", nullable=False)
+    resume_path = db.Column(db.String(255), nullable=True)
     interview_datetime = db.Column(db.DateTime(timezone=True), nullable=True)
     interview_location = db.Column(db.String(255), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     selection_date = db.Column(db.DateTime(timezone=True), nullable=True)
+    offer_status = db.Column(db.String(20), nullable=True)  # NULL, "Pending", "Accepted", "Declined", "Auto Declined"
 
     student_profile = db.relationship("StudentProfile", back_populates="applications")
-    drive = db.relationship("PlacementDrive", back_populates="applications") 
+    drive = db.relationship("PlacementDrive", back_populates="applications")

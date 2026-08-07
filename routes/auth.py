@@ -1,9 +1,21 @@
+import re
+
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
 
+from constants import BRANCHES
 from models import CompanyProfile, StudentProfile, User, db
+from utils.cache_utils import (
+    invalidate_admin_companies,
+    invalidate_admin_dashboard,
+    invalidate_admin_reports,
+    invalidate_admin_students,
+)
+from utils.validators import validate_branch
 
 auth_bp = Blueprint("auth", __name__)
+
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def _json_data():
@@ -36,9 +48,32 @@ def _check_string(data, field, max_length, errors):
         errors.append(f"{field} exceeds {max_length} characters")
 
 
+def _validate_email(email):
+    if not EMAIL_REGEX.match(email):
+        return False
+    return True
+
+
+def _validate_password(password):
+    if len(password) < 8:
+        return False
+    return True
+
+
+def _validate_hr_contact(hr_contact):
+    if not hr_contact.isdigit() or len(hr_contact) != 10:
+        return False
+    return True
+
+
 @auth_bp.route("/health")
 def health():
     return jsonify({"status": "ok", "scope": "auth"})
+
+
+@auth_bp.route("/branches", methods=["GET"])
+def list_branches():
+    return jsonify({"success": True, "branches": BRANCHES})
 
 
 @auth_bp.route("/student/register", methods=["POST"])
@@ -50,6 +85,12 @@ def register_student():
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
     email = data["email"].strip().lower()
+    if not _validate_email(email):
+        return jsonify({"success": False, "error": "invalid_email_format"}), 400
+
+    if not _validate_password(data["password"]):
+        return jsonify({"success": False, "error": "password_too_short"}), 400
+
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "email_exists"}), 409
 
@@ -67,10 +108,12 @@ def register_student():
 
     errors = []
     _check_string(data, "name", 120, errors)
-    _check_string(data, "branch", 80, errors)
     _check_string(data, "email", 120, errors)
     if errors:
         return jsonify({"success": False, "error": "string_too_long", "details": errors}), 400
+
+    if not validate_branch(data["branch"]):
+        return jsonify({"success": False, "error": "invalid_branch"}), 400
 
     user = User(email=email, role="student")
     user.set_password(data["password"])
@@ -86,6 +129,10 @@ def register_student():
     db.session.add(profile)
     db.session.commit()
 
+    invalidate_admin_dashboard()
+    invalidate_admin_students()
+    invalidate_admin_reports()
+
     return jsonify({"success": True, "user_id": user.id, "role": user.role}), 201
 
 
@@ -98,6 +145,15 @@ def register_company():
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
     email = data["email"].strip().lower()
+    if not _validate_email(email):
+        return jsonify({"success": False, "error": "invalid_email_format"}), 400
+
+    if not _validate_password(data["password"]):
+        return jsonify({"success": False, "error": "password_too_short"}), 400
+
+    if not _validate_hr_contact(data["hr_contact"]):
+        return jsonify({"success": False, "error": "invalid_hr_contact"}), 400
+
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "email_exists"}), 409
 
@@ -123,6 +179,10 @@ def register_company():
     db.session.add(profile)
     db.session.commit()
 
+    invalidate_admin_dashboard()
+    invalidate_admin_companies()
+    invalidate_admin_reports()
+
     return jsonify({"success": True, "user_id": user.id, "role": user.role}), 201
 
 
@@ -141,6 +201,11 @@ def login():
 
     if not user.is_active:
         return jsonify({"success": False, "error": "account_disabled"}), 403
+
+    if user.role == "company":
+        cp = CompanyProfile.query.filter_by(user_id=user.id).first()
+        if cp and cp.approval_status == "Rejected":
+            return jsonify({"success": False, "error": "account_disabled"}), 403
 
     login_user(user)
     return jsonify({"success": True, "user_id": user.id, "role": user.role})
@@ -165,4 +230,4 @@ def me():
             "role": current_user.role,
             "email": current_user.email,
         }
-    ) 
+    )

@@ -1,7 +1,17 @@
 <template>
-  <div>Implementation Pending</div>
+  <router-view />
 </template>
 
-<script>
-export default {}
+<script setup>
+import { onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  authStore.fetchUser()
+})
 </script>
+
+<style scoped>
+</style>

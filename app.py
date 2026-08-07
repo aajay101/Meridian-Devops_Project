@@ -1,12 +1,19 @@
+import json
+import logging
+import sqlite3
+
 from flask import Flask, current_app, jsonify
 from flask_login import LoginManager
 
 from config import DevelopmentConfig
+from constants import BRANCH_MIGRATION_MAP
 from models import User, db
 from utils.cache_utils import init_cache
 
+logger = logging.getLogger(__name__)
+
 login_manager = LoginManager()
-login_manager.login_view = "auth.login"
+login_manager.login_view = "api.auth.login"
 
 
 @login_manager.unauthorized_handler
@@ -46,6 +53,7 @@ def create_app(config_class=DevelopmentConfig):
 
     with app.app_context():
         db.create_all()
+        migrate_existing_db()
         seed_default_admin()
 
     return app
@@ -79,16 +87,19 @@ def register_blueprints(app):
     from routes.jobs import jobs_bp
     from routes.student import student_bp
 
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(admin_bp, url_prefix="/admin")
-    app.register_blueprint(company_bp, url_prefix="/company")
-    app.register_blueprint(jobs_bp, url_prefix="/jobs")
-    app.register_blueprint(student_bp, url_prefix="/student")
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(company_bp, url_prefix="/api/company")
+    app.register_blueprint(jobs_bp, url_prefix="/api/jobs")
+    app.register_blueprint(student_bp, url_prefix="/api/student")
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    user = db.session.get(User, int(user_id))
+    if user and not user.is_active:
+        return None
+    return user
 
 
 def seed_default_admin():
@@ -107,6 +118,99 @@ def seed_default_admin():
     db.session.commit()
 
 
+def migrate_existing_db():
+    """Add missing columns to existing tables."""
+    uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if not uri.startswith("sqlite:///"):
+        return
+
+    db_path = uri.replace("sqlite:///", "")
+    if not db_path or db_path == ":memory:":
+        return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(placement_drive)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        if "eligibility_year_mode" not in columns:
+            cursor.execute(
+                "ALTER TABLE placement_drive ADD COLUMN eligibility_year_mode VARCHAR(10) DEFAULT 'exact'"
+            )
+            conn.commit()
+
+        if "eligibility_branches" not in columns:
+            cursor.execute(
+                "ALTER TABLE placement_drive ADD COLUMN eligibility_branches TEXT NOT NULL DEFAULT '[]'"
+            )
+            conn.commit()
+            logger.info("Added eligibility_branches column to placement_drive table")
+
+        cursor.execute("PRAGMA table_info(application)")
+        app_columns = [col[1] for col in cursor.fetchall()]
+
+        if "resume_path" not in app_columns:
+            cursor.execute(
+                "ALTER TABLE application ADD COLUMN resume_path VARCHAR(255)"
+            )
+            conn.commit()
+
+        if "offer_status" not in app_columns:
+            cursor.execute(
+                "ALTER TABLE application ADD COLUMN offer_status VARCHAR(20)"
+            )
+            conn.commit()
+
+        _migrate_branch_values(cursor, conn)
+        _migrate_branches_to_json(cursor, conn)
+
+        conn.close()
+    except Exception:
+        logger.exception("Database migration failed")
+
+
+def _migrate_branch_values(cursor, conn):
+    """Migrate legacy branch values to standardized format."""
+    for table, column in [("student_profile", "branch"), ("placement_drive", "eligibility_branch")]:
+        try:
+            cursor.execute(f"SELECT DISTINCT {column} FROM {table}")
+            values = [row[0] for row in cursor.fetchall() if row[0]]
+            for old_value in values:
+                new_value = BRANCH_MIGRATION_MAP.get(old_value)
+                if new_value and new_value != old_value:
+                    cursor.execute(
+                        f"UPDATE {table} SET {column} = ? WHERE {column} = ?",
+                        (new_value, old_value),
+                    )
+            conn.commit()
+        except Exception:
+            logger.warning("Failed to migrate branch values for %s.%s", table, column)
+
+
+def _migrate_branches_to_json(cursor, conn):
+    """Migrate eligibility_branch to eligibility_branches JSON array."""
+    try:
+        cursor.execute(
+            "SELECT id, eligibility_branch FROM placement_drive WHERE eligibility_branches = '[]' OR eligibility_branches IS NULL"
+        )
+        drives = cursor.fetchall()
+        migrated_count = 0
+        for drive_id, eligibility_branch in drives:
+            if eligibility_branch:
+                branches_json = json.dumps([eligibility_branch])
+                cursor.execute(
+                    "UPDATE placement_drive SET eligibility_branches = ? WHERE id = ?",
+                    (branches_json, drive_id),
+                )
+                migrated_count += 1
+        if migrated_count > 0:
+            conn.commit()
+            logger.info("Migrated %d drives from eligibility_branch to eligibility_branches", migrated_count)
+    except Exception:
+        logger.exception("Failed to migrate eligibility_branches")
+
+
 app = create_app()
 
 
@@ -116,4 +220,4 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(debug=app.config.get("DEBUG", False)) 
+    app.run(debug=app.config.get("DEBUG", False))

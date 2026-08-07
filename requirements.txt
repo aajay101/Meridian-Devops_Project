@@ -1,7 +1,10 @@
 Flask
 Flask-SQLAlchemy
 Flask-Login
+Flask-CORS
 Flask-Caching
+Werkzeug
 redis
 celery
+gunicorn
 python-dotenv
