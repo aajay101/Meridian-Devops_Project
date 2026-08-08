@@ -39,12 +39,7 @@
 
       <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
-          <div class="stat-card-wrapper">
-            <StatCard label="Pending Offers" :value="stats.pending_offers" icon="bi bi-envelope-check" color="success" />
-            <div v-if="stats.max_active_offers" class="stat-card-sub text-secondary small mt-1">
-              {{ stats.pending_offers }} / {{ stats.max_active_offers }}
-            </div>
-          </div>
+          <StatCard label="Pending Offers" :value="stats.pending_offers" icon="bi bi-envelope-check" color="success" />
         </div>
       </div>
 
@@ -86,13 +81,13 @@
                 <tbody>
                   <tr v-for="app in recentApps" :key="app.application_id">
                     <td>
-                      <router-link :to="`/student/drives/${app.drive_id}`" class="fw-medium text-decoration-none">
+                      <router-link :to="`/student/drives/${app.drive_id}`" class="fw-medium text-decoration-none data-value">
                         {{ app.job_title }}
                       </router-link>
                     </td>
-                    <td class="d-none d-md-table-cell">{{ app.company_name }}</td>
+                    <td class="d-none d-md-table-cell data-value">{{ app.company_name }}</td>
                     <td><StatusBadge :status="app.status" /></td>
-                    <td class="d-none d-lg-table-cell">{{ formatDate(app.application_date) }}</td>
+                    <td class="d-none d-lg-table-cell data-value">{{ formatDate(app.application_date) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -112,7 +107,7 @@
             <div v-else class="interview-list">
               <div v-for="app in upcomingInterviews" :key="app.application_id" class="interview-item">
                 <div class="interview-header">
-                  <span class="fw-medium">{{ app.job_title }}</span>
+                  <span class="fw-medium data-value">{{ app.job_title }}</span>
                   <span class="text-secondary small">{{ app.company_name }}</span>
                 </div>
                 <div class="interview-details">

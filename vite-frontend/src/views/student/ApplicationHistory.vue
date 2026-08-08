@@ -39,11 +39,11 @@
           <tbody>
             <tr v-for="app in applications" :key="app.application_id">
               <td>
-                <div class="fw-medium">{{ app.job_title }}</div>
+                <div class="fw-medium data-value">{{ app.job_title }}</div>
                 <div class="text-secondary small d-lg-none">{{ app.company_name }}</div>
               </td>
-              <td class="d-none d-lg-table-cell">{{ app.company_name }}</td>
-              <td class="d-none d-md-table-cell">{{ formatDate(app.application_date) }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ app.company_name }}</td>
+              <td class="d-none d-md-table-cell data-value">{{ formatDate(app.application_date) }}</td>
               <td><StatusBadge :status="app.status" /></td>
               <td>
                 <div v-if="app.status === 'Interview Scheduled'" class="interview-info">

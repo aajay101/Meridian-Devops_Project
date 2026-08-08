@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 
+import LandingPage from '@/views/public/LandingPage.vue'
 import LoginPage from '@/views/public/LoginPage.vue'
 import RegisterPage from '@/views/public/RegisterPage.vue'
 
@@ -40,9 +41,14 @@ import ServerError from '@/views/error/ServerError.vue'
 const routes = [
   {
     path: '/',
+    name: 'Landing',
+    component: LandingPage,
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/',
     component: AuthLayout,
     children: [
-      { path: '', redirect: '/login' },
       { path: 'login', name: 'Login', component: LoginPage, meta: { requiresAuth: false } },
       { path: 'register', name: 'Register', component: RegisterPage, meta: { requiresAuth: false } }
     ]
@@ -141,7 +147,7 @@ router.beforeEach(async (to, from, next) => {
     return next('/403')
   }
 
-  if ((to.name === 'Login' || to.name === 'Register') && isAuthenticated) {
+  if ((to.name === 'Landing' || to.name === 'Login' || to.name === 'Register') && isAuthenticated) {
     const roleRoutes = { admin: '/admin/dashboard', company: '/company/dashboard', student: '/student/dashboard' }
     return next(roleRoutes[userRole] || '/login')
   }

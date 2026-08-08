@@ -78,6 +78,12 @@
                 <div class="form-text">Email is managed by your account settings.</div>
               </div>
 
+              <div class="mb-3">
+                <label for="phone_number" class="form-label">Account Owner Phone Number</label>
+                <input id="phone_number" v-model="form.phone_number" type="tel" class="form-control" :class="{ 'is-invalid': errors.phone_number }" placeholder="9876543210" />
+                <div v-if="errors.phone_number" class="invalid-feedback">{{ errors.phone_number }}</div>
+              </div>
+
               <button type="submit" class="btn btn-primary" :disabled="saving">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
                 {{ saving ? 'Saving...' : 'Save Changes' }}
@@ -106,7 +112,7 @@
               </div>
               <div class="info-field">
                 <span class="info-label">Member Since</span>
-                <span class="info-value">{{ formatDate(profile?.created_at) }}</span>
+                <span class="info-value data-value">{{ formatDate(profile?.created_at) }}</span>
               </div>
             </div>
           </SectionCard>
@@ -130,12 +136,14 @@ const errorMessage = ref('')
 
 const form = reactive({
   company_name: '',
+  phone_number: '',
   hr_contact: '',
   website: ''
 })
 
 const errors = reactive({
   company_name: '',
+  phone_number: '',
   hr_contact: '',
   website: ''
 })
@@ -147,6 +155,7 @@ const formatDate = (dateStr) => {
 
 const populateForm = (data) => {
   form.company_name = data.company_name || ''
+  form.phone_number = data.phone_number || ''
   form.hr_contact = data.hr_contact || ''
   form.website = data.website || ''
 }
@@ -176,6 +185,11 @@ const validate = () => {
     valid = false
   }
 
+  if (form.phone_number && !/^[6-9]\d{9}$/.test(form.phone_number.trim())) {
+    errors.phone_number = 'Enter a valid 10-digit Indian mobile number'
+    valid = false
+  }
+
   return valid
 }
 
@@ -190,6 +204,7 @@ const handleSave = async () => {
       company_name: form.company_name.trim(),
       hr_contact: form.hr_contact.trim()
     }
+    if (form.phone_number.trim()) payload.phone_number = form.phone_number.trim()
     if (form.website.trim()) {
       payload.website = form.website.trim()
     } else {

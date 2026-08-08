@@ -34,9 +34,9 @@
           </thead>
           <tbody>
             <tr v-for="p in placements" :key="p.application_id">
-              <td class="fw-medium">{{ p.company_name }}</td>
-              <td>{{ p.job_title }}</td>
-              <td class="d-none d-md-table-cell">{{ formatDate(p.selection_date) }}</td>
+              <td class="fw-medium data-value">{{ p.company_name }}</td>
+              <td class="data-value">{{ p.job_title }}</td>
+              <td class="d-none d-md-table-cell data-value">{{ formatDate(p.selection_date) }}</td>
               <td><StatusBadge :status="p.status" /></td>
               <td>
                 <StatusBadge v-if="p.offer_status" :status="p.offer_status" />

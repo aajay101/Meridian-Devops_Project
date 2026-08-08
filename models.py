@@ -14,6 +14,8 @@ def utc_now():
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    # Nullable during the legacy-account backfill. New registrations require it.
+    phone_number = db.Column(db.String(10), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(30), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)

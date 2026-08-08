@@ -18,17 +18,27 @@
         <router-view />
       </main>
     </div>
+    <ToastContainer ref="toastRef" />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, provide } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import Navbar from '@/components/layout/Navbar.vue'
+import ToastContainer from '@/components/common/ToastContainer.vue'
 
 const authStore = useAuthStore()
 const sidebarOpen = ref(false)
+const toastRef = ref(null)
+
+provide('toast', {
+  success: (title, msg) => toastRef.value?.success(title, msg),
+  error: (title, msg) => toastRef.value?.error(title, msg),
+  warning: (title, msg) => toastRef.value?.warning(title, msg),
+  info: (title, msg) => toastRef.value?.info(title, msg)
+})
 </script>
 
 <style scoped>

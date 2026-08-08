@@ -31,15 +31,15 @@
             <div class="info-grid">
               <div class="info-field">
                 <span class="info-label">Branches</span>
-                <span class="info-value">{{ drive.eligibility_branches.join(', ') }}</span>
+                <span class="info-value data-value">{{ drive.eligibility_branches.join(', ') }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Minimum CGPA</span>
-                <span class="info-value">{{ drive.eligibility_cgpa }}</span>
+                <span class="info-value data-value">{{ drive.eligibility_cgpa }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Year</span>
-                <span class="info-value">
+                <span class="info-value data-value">
                   {{ drive.eligibility_year }}
                   <span class="text-secondary ms-1">({{ drive.eligibility_year_mode === 'minimum' ? 'Minimum' : 'Exact' }})</span>
                 </span>

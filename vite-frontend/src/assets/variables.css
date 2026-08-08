@@ -1,95 +1,109 @@
 :root {
   /* ============================================
-     PRIMARY COLORS
+     PRIMARY / ACCENT COLORS (Neutral)
      ============================================ */
-  --color-primary: #2563EB;
-  --color-primary-hover: #1D4ED8;
-  --color-primary-active: #1E40AF;
-  --color-primary-light: #EFF6FF;
-  --color-primary-muted: #DBEAFE;
+  --color-primary: #18181B;
+  --color-primary-hover: #27272A;
+  --color-primary-active: #09090B;
+  --color-primary-subtle: #F4F4F5;
+  --color-primary-muted: #E4E4E7;
 
   /* ============================================
-     SECONDARY / ACCENT COLORS
+     SECONDARY COLORS
      ============================================ */
-  --color-secondary: #64748B;
-  --color-secondary-hover: #475569;
-  --color-accent: #7C3AED;
+  --color-secondary: #71717A;
+  --color-secondary-hover: #52525B;
+  --color-secondary-subtle: #F4F4F5;
 
   /* ============================================
      STATUS COLORS
      ============================================ */
-  --color-success: #16A34A;
-  --color-success-bg: #F0FDF4;
-  --color-success-border: #BBF7D0;
+  --color-success: #059669;
+  --color-success-subtle: #ECFDF5;
+  --color-success-muted: #A7F3D0;
 
   --color-warning: #D97706;
-  --color-warning-bg: #FFFBEB;
-  --color-warning-border: #FDE68A;
+  --color-warning-subtle: #FFFBEB;
+  --color-warning-muted: #FDE68A;
 
   --color-danger: #DC2626;
-  --color-danger-bg: #FEF2F2;
-  --color-danger-border: #FECACA;
+  --color-danger-subtle: #FEF2F2;
+  --color-danger-muted: #FECACA;
 
-  --color-info: #0891B2;
-  --color-info-bg: #ECFEFF;
-  --color-info-border: #A5F3FC;
+  --color-info: #2563EB;
+  --color-info-subtle: #EFF6FF;
+  --color-info-muted: #BFDBFE;
 
   /* ============================================
      SURFACE / BACKGROUND COLORS
      ============================================ */
-  --color-bg: #F8FAFC;
+  --color-bg: #FAFAFA;
   --color-surface: #FFFFFF;
-  --color-surface-hover: #F1F5F9;
-  --color-surface-muted: #F8FAFC;
+  --color-surface-hover: #F4F4F5;
+  --color-surface-active: #E4E4E7;
+  --color-surface-overlay: rgba(0, 0, 0, 0.5);
 
   /* ============================================
      BORDER COLORS
      ============================================ */
-  --color-border: #E2E8F0;
-  --color-border-strong: #CBD5E1;
-  --color-border-subtle: #F1F5F9;
+  --color-border: #E4E4E7;
+  --color-border-strong: #D4D4D8;
+  --color-border-subtle: #F4F4F5;
 
   /* ============================================
-     SIDEBAR COLORS
+     SIDEBAR COLORS (Charcoal)
      ============================================ */
-  --color-sidebar-bg: #0F172A;
-  --color-sidebar-text: #94A3B8;
-  --color-sidebar-active: #FFFFFF;
-  --color-sidebar-active-bg: #1E293B;
-  --color-sidebar-hover-bg: #1E293B;
-  --color-sidebar-logo: #FFFFFF;
+  --color-sidebar-bg: #18181B;
+  --color-sidebar-surface: #27272A;
+  --color-sidebar-text: #A1A1AA;
+  --color-sidebar-text-active: #FAFAFA;
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.08);
+  --color-sidebar-border: rgba(255, 255, 255, 0.08);
 
   /* ============================================
      NAVBAR COLORS
      ============================================ */
   --color-navbar-bg: #FFFFFF;
-  --color-navbar-border: #E2E8F0;
-  --color-navbar-text: #1E293B;
+  --color-navbar-border: #E4E4E7;
+  --color-navbar-text: #18181B;
 
   /* ============================================
      TEXT HIERARCHY
      ============================================ */
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-tertiary: #94A3B8;
-  --text-disabled: #CBD5E1;
-  --text-on-primary: #FFFFFF;
-  --text-on-dark: #F8FAFC;
-  --text-link: #2563EB;
-  --text-link-hover: #1D4ED8;
+  --text-primary: #18181B;
+  --text-secondary: #52525B;
+  --text-tertiary: #A1A1AA;
+  --text-quaternary: #D4D4D8;
+  --text-disabled: #D4D4D8;
+  --text-inverse: #FAFAFA;
+  --text-on-primary: #FAFAFA;
+  --text-on-dark: #FAFAFA;
+  --text-link: #6D28D9;
+  --text-link-hover: #5B21B6;
+
+  /* ============================================
+     DATA VALUE COLOR (Accent for actual data)
+     ============================================ */
+  --color-data-value: #6D28D9;
 
   /* ============================================
      DISABLED COLORS
      ============================================ */
-  --color-disabled-bg: #F1F5F9;
-  --color-disabled-border: #E2E8F0;
-  --color-disabled-text: #94A3B8;
+  --color-disabled-bg: #F4F4F5;
+  --color-disabled-border: #E4E4E7;
+  --color-disabled-text: #A1A1AA;
 
   /* ============================================
      SPACING SCALE (base: 4px)
      ============================================ */
+  --space-0: 0px;
+  --space-px: 1px;
+  --space-0-5: 2px;
   --space-1: 4px;
+  --space-1-5: 6px;
   --space-2: 8px;
+  --space-2-5: 10px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
@@ -102,10 +116,11 @@
   /* ============================================
      BORDER RADIUS
      ============================================ */
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-full: 9999px;
 
   /* ============================================
@@ -114,42 +129,53 @@
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --text-xs: 11px;
-  --text-sm: 12px;
+  --text-sm: 12.5px;
   --text-base: 14px;
-  --text-md: 16px;
-  --text-lg: 20px;
-  --text-xl: 24px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
   --text-2xl: 28px;
   --text-3xl: 36px;
+  --text-stat: 30px;
+  --text-stat-lg: 40px;
 
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  --leading-tight: 1.25;
-  --leading-snug: 1.35;
+  --leading-tight: 1.2;
+  --leading-snug: 1.3;
   --leading-normal: 1.5;
-  --leading-relaxed: 1.6;
+  --leading-relaxed: 1.65;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+  --tracking-wider: 0.08em;
 
   /* ============================================
      SHADOWS / ELEVATION
      ============================================ */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 4px 12px -2px rgba(0, 0, 0, 0.10);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-ring: 0 0 0 3px rgba(24, 24, 27, 0.08);
 
   /* ============================================
      ANIMATION / TRANSITIONS
      ============================================ */
-  --duration-fast: 60ms;
-  --duration-base: 120ms;
+  --duration-fast: 80ms;
+  --duration-normal: 150ms;
   --duration-slow: 200ms;
   --duration-slower: 300ms;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-default: ease;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ============================================
@@ -157,10 +183,15 @@
    ============================================ */
 :root {
   --bs-primary: var(--color-primary);
-  --bs-primary-rgb: 37, 99, 235;
+  --bs-primary-rgb: 24, 24, 27;
   --bs-success: var(--color-success);
+  --bs-success-rgb: 5, 150, 105;
   --bs-danger: var(--color-danger);
+  --bs-danger-rgb: 220, 38, 38;
   --bs-warning: var(--color-warning);
+  --bs-warning-rgb: 217, 119, 6;
+  --bs-info: var(--color-info);
+  --bs-info-rgb: 37, 99, 235;
   --bs-body-font-family: var(--font-family);
   --bs-body-font-size: var(--text-base);
   --bs-body-color: var(--text-primary);
@@ -169,4 +200,6 @@
   --bs-border-radius-lg: var(--radius-lg);
   --bs-border-color: var(--color-border);
   --bs-box-shadow-sm: var(--shadow-sm);
+  --bs-link-color: var(--text-link);
+  --bs-link-hover-color: var(--text-link-hover);
 }

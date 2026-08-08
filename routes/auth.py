@@ -1,9 +1,8 @@
-import re
-
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy.exc import IntegrityError
 
-from constants import BRANCHES
+from utils.constants import BRANCHES
 from models import CompanyProfile, StudentProfile, User, db
 from utils.cache_utils import (
     invalidate_admin_companies,
@@ -11,12 +10,14 @@ from utils.cache_utils import (
     invalidate_admin_reports,
     invalidate_admin_students,
 )
-from utils.validators import validate_branch
+from utils.validators import (
+    normalize_email,
+    normalize_indian_phone_number,
+    password_validation_error,
+    validate_branch,
+)
 
 auth_bp = Blueprint("auth", __name__)
-
-EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-
 
 def _json_data():
     return request.get_json(silent=True) or {}
@@ -48,18 +49,6 @@ def _check_string(data, field, max_length, errors):
         errors.append(f"{field} exceeds {max_length} characters")
 
 
-def _validate_email(email):
-    if not EMAIL_REGEX.match(email):
-        return False
-    return True
-
-
-def _validate_password(password):
-    if len(password) < 8:
-        return False
-    return True
-
-
 def _validate_hr_contact(hr_contact):
     if not hr_contact.isdigit() or len(hr_contact) != 10:
         return False
@@ -79,20 +68,27 @@ def list_branches():
 @auth_bp.route("/student/register", methods=["POST"])
 def register_student():
     data = _json_data()
-    required = ["name", "email", "password", "branch", "cgpa", "year"]
+    required = ["name", "email", "password", "phone_number", "branch", "cgpa", "year"]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
-    email = data["email"].strip().lower()
-    if not _validate_email(email):
+    email = normalize_email(data["email"])
+    if not email:
         return jsonify({"success": False, "error": "invalid_email_format"}), 400
 
-    if not _validate_password(data["password"]):
-        return jsonify({"success": False, "error": "password_too_short"}), 400
+    password_error = password_validation_error(data["password"])
+    if password_error:
+        return jsonify({"success": False, "error": password_error}), 400
+
+    phone_number = normalize_indian_phone_number(data["phone_number"])
+    if not phone_number:
+        return jsonify({"success": False, "error": "invalid_phone_number"}), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "email_exists"}), 409
+    if User.query.filter_by(phone_number=phone_number).first():
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
 
     cgpa = _parse_float(data["cgpa"])
     if cgpa is None:
@@ -115,7 +111,7 @@ def register_student():
     if not validate_branch(data["branch"]):
         return jsonify({"success": False, "error": "invalid_branch"}), 400
 
-    user = User(email=email, role="student")
+    user = User(email=email, phone_number=phone_number, role="student")
     user.set_password(data["password"])
     profile = StudentProfile(
         user=user,
@@ -127,7 +123,13 @@ def register_student():
 
     db.session.add(user)
     db.session.add(profile)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if User.query.filter_by(email=email).first():
+            return jsonify({"success": False, "error": "email_exists"}), 409
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
 
     invalidate_admin_dashboard()
     invalidate_admin_students()
@@ -139,23 +141,30 @@ def register_student():
 @auth_bp.route("/company/register", methods=["POST"])
 def register_company():
     data = _json_data()
-    required = ["company_name", "email", "password", "hr_contact"]
+    required = ["company_name", "email", "password", "phone_number", "hr_contact"]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
-    email = data["email"].strip().lower()
-    if not _validate_email(email):
+    email = normalize_email(data["email"])
+    if not email:
         return jsonify({"success": False, "error": "invalid_email_format"}), 400
 
-    if not _validate_password(data["password"]):
-        return jsonify({"success": False, "error": "password_too_short"}), 400
+    password_error = password_validation_error(data["password"])
+    if password_error:
+        return jsonify({"success": False, "error": password_error}), 400
+
+    phone_number = normalize_indian_phone_number(data["phone_number"])
+    if not phone_number:
+        return jsonify({"success": False, "error": "invalid_phone_number"}), 400
 
     if not _validate_hr_contact(data["hr_contact"]):
         return jsonify({"success": False, "error": "invalid_hr_contact"}), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "email_exists"}), 409
+    if User.query.filter_by(phone_number=phone_number).first():
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
 
     errors = []
     _check_string(data, "company_name", 120, errors)
@@ -165,7 +174,7 @@ def register_company():
     if errors:
         return jsonify({"success": False, "error": "string_too_long", "details": errors}), 400
 
-    user = User(email=email, role="company")
+    user = User(email=email, phone_number=phone_number, role="company")
     user.set_password(data["password"])
     profile = CompanyProfile(
         user=user,
@@ -177,7 +186,13 @@ def register_company():
 
     db.session.add(user)
     db.session.add(profile)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if User.query.filter_by(email=email).first():
+            return jsonify({"success": False, "error": "email_exists"}), 409
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
 
     invalidate_admin_dashboard()
     invalidate_admin_companies()
@@ -189,10 +204,14 @@ def register_company():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = _json_data()
-    required = ["email", "password"]
+    required = ["email", "password", "role"]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
+
+    requested_role = data["role"].strip().lower()
+    if requested_role not in ("student", "company", "admin"):
+        return jsonify({"success": False, "error": "invalid_role"}), 400
 
     email = data["email"].strip().lower()
     user = User.query.filter_by(email=email).first()
@@ -206,6 +225,13 @@ def login():
         cp = CompanyProfile.query.filter_by(user_id=user.id).first()
         if cp and cp.approval_status == "Rejected":
             return jsonify({"success": False, "error": "account_disabled"}), 403
+
+    if requested_role != user.role:
+        return jsonify({
+            "success": False,
+            "error": "role_mismatch",
+            "message": "These credentials do not belong to the selected account type."
+        }), 403
 
     login_user(user)
     return jsonify({"success": True, "user_id": user.id, "role": user.role})
@@ -229,5 +255,6 @@ def me():
             "user_id": current_user.id,
             "role": current_user.role,
             "email": current_user.email,
+            "phone_number": current_user.phone_number,
         }
     )

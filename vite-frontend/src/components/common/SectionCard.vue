@@ -25,8 +25,14 @@ defineProps({
 .section-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.section-card:hover {
+  box-shadow: var(--shadow-card-hover);
 }
 
 .section-card-header {
@@ -38,7 +44,7 @@ defineProps({
 }
 
 .section-card-title {
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
   margin: 0;

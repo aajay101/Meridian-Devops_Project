@@ -44,7 +44,7 @@
             <div class="info-grid">
               <div class="info-field">
                 <span class="info-label">Job Title</span>
-                <span class="info-value">{{ drive.job_title }}</span>
+                <span class="info-value data-value">{{ drive.job_title }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Status</span>
@@ -52,7 +52,7 @@
               </div>
               <div class="info-field">
                 <span class="info-label">Created</span>
-                <span class="info-value">{{ formatDate(drive.created_at) }}</span>
+                <span class="info-value data-value">{{ formatDate(drive.created_at) }}</span>
               </div>
             </div>
           </SectionCard>
@@ -66,25 +66,25 @@
             <div class="info-grid">
               <div class="info-field">
                 <span class="info-label">Branches</span>
-                <span class="info-value">
+                <span class="info-value data-value">
                   {{ Array.isArray(drive.eligibility_branches) ? drive.eligibility_branches.join(', ') : drive.eligibility_branch }}
                 </span>
               </div>
               <div class="info-field">
                 <span class="info-label">Minimum CGPA</span>
-                <span class="info-value">{{ drive.eligibility_cgpa }}</span>
+                <span class="info-value data-value">{{ drive.eligibility_cgpa }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Year</span>
-                <span class="info-value">{{ drive.eligibility_year }}</span>
+                <span class="info-value data-value">{{ drive.eligibility_year }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Year Mode</span>
-                <span class="info-value">{{ drive.eligibility_year_mode === 'minimum' ? 'This Year & Above' : 'This Year Only' }}</span>
+                <span class="info-value data-value">{{ drive.eligibility_year_mode === 'minimum' ? 'This Year & Above' : 'This Year Only' }}</span>
               </div>
               <div class="info-field">
                 <span class="info-label">Application Deadline</span>
-                <span class="info-value" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
+                <span class="info-value data-value" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
                   {{ formatDate(drive.application_deadline) }}
                 </span>
               </div>

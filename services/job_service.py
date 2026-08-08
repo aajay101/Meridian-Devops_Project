@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 # Used by the service to verify ownership on every status check.
 _task_registry = {}
 
-# Celery states that indicate the task is still in progress.
-_IN_PROGRESS_STATES = {"PENDING", "STARTED", "RETRY"}
-
 
 def _verify_task_ownership(task_id, student_profile_id):
     """

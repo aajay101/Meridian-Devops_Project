@@ -1,81 +1,83 @@
 <template>
   <div>
-    <PageHeader title="Manage Drives" subtitle="Approve or reject placement drives" />
+    <PageHeader title="Manage Drives" subtitle="Approve or reject placement drives">
+      <template #action>
+        <span class="result-count" v-if="!loading">{{ filteredDrives.length }} drives</span>
+      </template>
+    </PageHeader>
 
     <SectionCard>
-      <div class="table-toolbar">
-        <ul class="nav nav-pills">
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'all' }" @click="setFilter('all')">All</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Pending' }" @click="setFilter('Pending')">Pending</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Approved' }" @click="setFilter('Approved')">Approved</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Rejected' }" @click="setFilter('Rejected')">Rejected</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Closed' }" @click="setFilter('Closed')">Closed</button>
-          </li>
-        </ul>
-        <input
-          v-model="query"
-          type="text"
-          class="form-control form-control-sm search-input"
-          placeholder="Search drives..."
-        />
-      </div>
+      <FilterBar
+        v-model="activeFilter"
+        v-model:searchValue="query"
+        :filters="filterOptions"
+        searchPlaceholder="Search drives..."
+        ariaLabel="Filter drives by status"
+      />
 
       <div v-if="loading" class="table-skeleton">
         <div v-for="n in 5" :key="n" class="skeleton-row"></div>
       </div>
 
       <div v-else-if="filteredDrives.length === 0" class="text-center py-5">
-        <EmptyState icon="bi bi-briefcase" title="No drives found" description="No drives match your current filters." />
+        <EmptyState icon="bi bi-briefcase" title="No drives found" description="No drives match your current filters.">
+          <template #action>
+            <button class="btn btn-outline-secondary btn-sm" @click="resetFilters">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+            </button>
+          </template>
+        </EmptyState>
       </div>
 
       <div v-else class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="data-table" aria-label="Drives list">
           <thead>
             <tr>
-              <th>Job Title</th>
-              <th>Company</th>
-              <th class="d-none d-lg-table-cell">Branches</th>
-              <th class="d-none d-lg-table-cell">CGPA</th>
-              <th class="d-none d-lg-table-cell">Deadline</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th scope="col">Job Title</th>
+              <th scope="col">Company</th>
+              <th scope="col" class="d-none d-lg-table-cell">Branches</th>
+              <th scope="col" class="d-none d-lg-table-cell">CGPA</th>
+              <th scope="col" class="d-none d-lg-table-cell">Deadline</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="drive in filteredDrives" :key="drive.drive_id">
-              <td>
-                <router-link :to="`/admin/drives/${drive.drive_id}`" class="fw-medium text-decoration-none">
-                  {{ drive.job_title }}
-                </router-link>
+              <td data-label="Job Title">
+              <router-link :to="`/admin/drives/${drive.drive_id}`" class="td-link data-value">
+                    {{ drive.job_title }}
+                  </router-link>
               </td>
-              <td>{{ drive.company_name }}</td>
-              <td class="d-none d-lg-table-cell">{{ drive.eligibility_branches.join(', ') }}</td>
-              <td class="d-none d-lg-table-cell">{{ drive.eligibility_cgpa }}</td>
-              <td class="d-none d-lg-table-cell" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
+              <td data-label="Company" class="td-secondary data-value">{{ drive.company_name }}</td>
+              <td data-label="Branches" class="d-none d-lg-table-cell">
+                <div class="chip-overflow">
+                  <template v-if="drive.eligibility_branches.length > 2">
+                    <Chip v-for="branch in drive.eligibility_branches.slice(0, 2)" :key="branch">{{ branch }}</Chip>
+                    <span class="chip-overflow__more">+{{ drive.eligibility_branches.length - 2 }}</span>
+                  </template>
+                  <template v-else>
+                    <Chip v-for="branch in drive.eligibility_branches" :key="branch">{{ branch }}</Chip>
+                  </template>
+                </div>
+              </td>
+              <td data-label="CGPA" class="d-none d-lg-table-cell td-secondary data-value">{{ drive.eligibility_cgpa }}</td>
+              <td data-label="Deadline" class="d-none d-lg-table-cell data-value" :class="isPastDeadline(drive.application_deadline) ? 'deadline-urgent' : 'td-secondary'">
                 {{ formatDate(drive.application_deadline) }}
               </td>
-              <td><StatusBadge :status="drive.status" /></td>
-              <td>
+              <td data-label="Status"><StatusBadge :status="drive.status" /></td>
+              <td data-label="Actions">
                 <div class="d-flex gap-2">
                   <template v-if="drive.status === 'Pending'">
-                    <button class="btn btn-success btn-sm" @click="confirmAction(drive, 'approve')" :disabled="submitting">
-                      Approve
+                    <button class="btn btn-outline-success btn-sm" @click="confirmAction(drive, 'approve')" :disabled="submitting">
+                      <i class="bi bi-check-lg"></i> Approve
                     </button>
-                    <button class="btn btn-danger btn-sm" @click="confirmAction(drive, 'reject')" :disabled="submitting">
-                      Reject
+                    <button class="btn btn-outline-danger btn-sm" @click="confirmAction(drive, 'reject')" :disabled="submitting">
+                      <i class="bi bi-x-lg"></i> Reject
                     </button>
                   </template>
                   <template v-else-if="drive.status === 'Approved'">
-                    <button class="btn btn-secondary btn-sm" @click="confirmAction(drive, 'close')" :disabled="submitting">
+                    <button class="btn btn-outline-secondary btn-sm" @click="confirmAction(drive, 'close')" :disabled="submitting">
                       Close
                     </button>
                   </template>
@@ -105,9 +107,11 @@ import { ref, computed, onMounted } from 'vue'
 import { getDrives, approveDrive, rejectDrive, closeDrive } from '@/api/admin'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SectionCard from '@/components/common/SectionCard.vue'
+import FilterBar from '@/components/common/FilterBar.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import Chip from '@/components/common/Chip.vue'
 
 const drives = ref([])
 const loading = ref(false)
@@ -115,6 +119,14 @@ const submitting = ref(false)
 const query = ref('')
 const activeFilter = ref('all')
 const dialog = ref({ open: false, drive: null, action: null })
+
+const filterOptions = computed(() => [
+  { key: 'all', label: 'All', count: drives.value.length },
+  { key: 'Pending', label: 'Pending', count: drives.value.filter((d) => d.status === 'Pending').length },
+  { key: 'Approved', label: 'Approved', count: drives.value.filter((d) => d.status === 'Approved').length },
+  { key: 'Rejected', label: 'Rejected', count: drives.value.filter((d) => d.status === 'Rejected').length },
+  { key: 'Closed', label: 'Closed', count: drives.value.filter((d) => d.status === 'Closed').length }
+])
 
 const filteredDrives = computed(() => {
   let list = drives.value
@@ -128,8 +140,7 @@ const filteredDrives = computed(() => {
         d.job_title.toLowerCase().includes(q) ||
         d.company_name.toLowerCase().includes(q) ||
         d.eligibility_branches.some((b) => b.toLowerCase().includes(q)) ||
-        String(d.eligibility_cgpa).includes(q) ||
-        d.status.toLowerCase().includes(q)
+        String(d.eligibility_cgpa).includes(q)
     )
   }
   return list
@@ -160,10 +171,6 @@ const dialogConfirmVariant = computed(() => {
   return map[dialog.value.action] || 'primary'
 })
 
-const setFilter = (filter) => {
-  activeFilter.value = filter
-}
-
 const formatDate = (dateStr) => {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -176,6 +183,11 @@ const isPastDeadline = (dateStr) => {
 
 const confirmAction = (drive, action) => {
   dialog.value = { open: true, drive, action }
+}
+
+const resetFilters = () => {
+  activeFilter.value = 'all'
+  query.value = ''
 }
 
 const executeAction = async () => {
@@ -211,47 +223,22 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.table-toolbar {
+.result-count {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+}
+
+.chip-overflow {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-4);
 }
 
-.search-input {
-  width: 280px;
-  max-width: 100%;
-}
-
-.table-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.skeleton-row {
-  height: 48px;
-  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-hover) 50%, var(--color-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-md);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-@media (max-width: 575.98px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .search-input {
-    width: 100%;
-  }
+.chip-overflow__more {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
 }
 </style>

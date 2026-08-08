@@ -51,6 +51,12 @@
                 <div class="form-text">Email is managed by your account settings.</div>
               </div>
 
+              <div class="mb-3">
+                <label for="phone_number" class="form-label">Phone Number</label>
+                <input id="phone_number" v-model="form.phone_number" type="tel" class="form-control" :class="{ 'is-invalid': errors.phone_number }" placeholder="9876543210" />
+                <div v-if="errors.phone_number" class="invalid-feedback">{{ errors.phone_number }}</div>
+              </div>
+
               <div class="row mb-3">
                 <div class="col-md-6">
                   <label for="branch" class="form-label">Branch <span class="text-danger">*</span></label>
@@ -170,7 +176,7 @@
             <div class="info-grid">
               <div class="info-field">
                 <span class="info-label">Member Since</span>
-                <span class="info-value">{{ formatDate(profile?.created_at) }}</span>
+                <span class="info-value data-value">{{ formatDate(profile?.created_at) }}</span>
               </div>
             </div>
           </SectionCard>
@@ -198,6 +204,7 @@ const branches = ref([])
 
 const form = reactive({
   name: '',
+  phone_number: '',
   branch: '',
   cgpa: '',
   year: ''
@@ -205,6 +212,7 @@ const form = reactive({
 
 const errors = reactive({
   name: '',
+  phone_number: '',
   branch: '',
   cgpa: '',
   year: ''
@@ -222,6 +230,7 @@ const formatDate = (dateStr) => {
 
 const populateForm = (data) => {
   form.name = data.name || ''
+  form.phone_number = data.phone_number || ''
   form.branch = data.branch || ''
   form.cgpa = data.cgpa ?? ''
   form.year = data.year ?? ''
@@ -241,6 +250,11 @@ const validate = () => {
 
   if (!form.branch) {
     errors.branch = 'Branch is required'
+    valid = false
+  }
+
+  if (form.phone_number && !/^[6-9]\d{9}$/.test(form.phone_number.trim())) {
+    errors.phone_number = 'Enter a valid 10-digit Indian mobile number'
     valid = false
   }
 
@@ -266,17 +280,20 @@ const handleSaveProfile = async () => {
 
   saving.value = true
   try {
-    const res = await updateProfile({
+    const payload = {
       name: form.name.trim(),
       branch: form.branch,
       cgpa: parseFloat(form.cgpa),
       year: parseInt(form.year)
-    })
+    }
+    if (form.phone_number.trim()) payload.phone_number = form.phone_number.trim()
+    const res = await updateProfile(payload)
     if (res.data.success) {
       profile.value = {
         ...profile.value,
         name: res.data.name,
         email: res.data.email,
+        phone_number: res.data.phone_number,
         branch: res.data.branch,
         cgpa: res.data.cgpa,
         year: res.data.year

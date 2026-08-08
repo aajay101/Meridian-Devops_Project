@@ -34,14 +34,21 @@ defineProps({
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-10) var(--space-6);
+  padding: var(--space-12) var(--space-6);
   text-align: center;
 }
 
 .empty-state-icon {
-  font-size: 48px;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
   color: var(--text-tertiary);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .empty-state-title {
@@ -56,6 +63,7 @@ defineProps({
   color: var(--text-secondary);
   margin: 0 0 var(--space-5) 0;
   max-width: 320px;
+  line-height: var(--leading-relaxed);
 }
 
 .empty-state-action {

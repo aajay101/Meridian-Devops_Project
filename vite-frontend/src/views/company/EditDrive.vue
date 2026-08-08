@@ -138,11 +138,11 @@
             <div class="preview-card">
               <div class="preview-field">
                 <span class="preview-label">Job Title</span>
-                <span class="preview-value">{{ form.job_title || '—' }}</span>
+                <span class="preview-value data-value">{{ form.job_title || '—' }}</span>
               </div>
               <div class="preview-field">
                 <span class="preview-label">Branches</span>
-                <span class="preview-value">
+                <span class="preview-value data-value">
                   <template v-if="form.eligibility_branches.length">
                     {{ form.eligibility_branches.join(', ') }}
                   </template>
@@ -151,19 +151,19 @@
               </div>
               <div class="preview-field">
                 <span class="preview-label">Minimum CGPA</span>
-                <span class="preview-value">{{ form.eligibility_cgpa || '—' }}</span>
+                <span class="preview-value data-value">{{ form.eligibility_cgpa || '—' }}</span>
               </div>
               <div class="preview-field">
                 <span class="preview-label">Semester</span>
-                <span class="preview-value">{{ selectedSemesterLabel || '—' }}</span>
+                <span class="preview-value data-value">{{ selectedSemesterLabel || '—' }}</span>
               </div>
               <div class="preview-field">
                 <span class="preview-label">Year Mode</span>
-                <span class="preview-value">{{ form.eligibility_year_mode === 'minimum' ? 'This Year & Above' : 'This Year Only' }}</span>
+                <span class="preview-value data-value">{{ form.eligibility_year_mode === 'minimum' ? 'This Year & Above' : 'This Year Only' }}</span>
               </div>
               <div class="preview-field">
                 <span class="preview-label">Deadline</span>
-                <span class="preview-value">{{ formatDeadline(form.application_deadline) }}</span>
+                <span class="preview-value data-value">{{ formatDeadline(form.application_deadline) }}</span>
               </div>
             </div>
           </SectionCard>

@@ -4,8 +4,9 @@ import json
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
-from models import Application, CompanyProfile, PlacementDrive, db
+from models import Application, PlacementDrive, User, db
 from utils.cache_utils import (
     cache,
     invalidate_admin_companies,
@@ -18,7 +19,7 @@ from utils.cache_utils import (
     invalidate_drive_deleted,
     invalidate_drive_status,
 )
-from utils.validators import company_required, validate_branches
+from utils.validators import company_required, normalize_indian_phone_number, validate_branches
 
 company_bp = Blueprint("company", __name__)
 
@@ -59,6 +60,7 @@ def get_profile():
             "website": cp.website,
             "approval_status": cp.approval_status,
             "email": u.email,
+            "phone_number": u.phone_number,
             "created_at": cp.created_at.isoformat(),
         },
     }
@@ -95,6 +97,12 @@ def update_profile():
         if val is not None and val != "" and isinstance(val, str) and len(val) > 255:
             errors.append("website must be 255 characters or less")
 
+    phone_number = None
+    if "phone_number" in data:
+        phone_number = normalize_indian_phone_number(data["phone_number"])
+        if not phone_number:
+            errors.append("phone_number must be a valid Indian mobile number")
+
     if errors:
         return jsonify({"success": False, "error": "validation_failed", "details": errors}), 400
 
@@ -104,9 +112,20 @@ def update_profile():
         cp.hr_contact = data["hr_contact"].strip()
     if "website" in data:
         cp.website = data["website"].strip() if data["website"] else None
+    if phone_number:
+        existing_user = User.query.filter(
+            User.phone_number == phone_number,
+            User.id != current_user.id,
+        ).first()
+        if existing_user:
+            return jsonify({"success": False, "error": "phone_number_exists"}), 409
+        current_user.phone_number = phone_number
 
     try:
         db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
     except Exception:
         db.session.rollback()
         return jsonify({"success": False, "error": "commit_failed"}), 500
@@ -124,6 +143,7 @@ def update_profile():
             "website": cp.website,
             "approval_status": cp.approval_status,
             "email": u.email,
+            "phone_number": u.phone_number,
             "created_at": cp.created_at.isoformat(),
         },
     })

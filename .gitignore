@@ -65,3 +65,74 @@ dist-ssr/
 # Security
 credentials.txt
 demo_credentials.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment
+.env
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Redis
+dump.rdb
+
+# Celery
+celerybeat-schedule*
+celery_err.txt
+celery_log.txt
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Exports
+static/exports/*
+!static/exports/.gitkeep
+
+# Uploads
+uploads/resumes/*
+!uploads/resumes/.gitkeep
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# Runtime caches
+.cache/
+
+# Binary/data files
+*.xlsx
+*.pdf
+
+# Security
+credentials.txt
+demo_credentials.md
+
+# Runtime database
+instance/

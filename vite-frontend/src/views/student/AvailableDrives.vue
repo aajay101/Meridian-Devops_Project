@@ -46,19 +46,19 @@
           <tbody>
             <tr v-for="drive in drives" :key="drive.drive_id">
               <td>
-                <router-link :to="`/student/drives/${drive.drive_id}`" class="fw-medium text-decoration-none">
+                <router-link :to="`/student/drives/${drive.drive_id}`" class="fw-medium text-decoration-none data-value">
                   {{ drive.job_title }}
                 </router-link>
                 <div class="text-secondary small d-lg-none">{{ drive.company_name }}</div>
               </td>
-              <td class="d-none d-lg-table-cell">{{ drive.company_name }}</td>
-              <td class="d-none d-md-table-cell">{{ drive.eligibility_branches.join(', ') }}</td>
-              <td class="d-none d-lg-table-cell">{{ drive.eligibility_cgpa }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ drive.company_name }}</td>
+              <td class="d-none d-md-table-cell data-value">{{ drive.eligibility_branches.join(', ') }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ drive.eligibility_cgpa }}</td>
               <td class="d-none d-lg-table-cell">
                 {{ drive.eligibility_year }}
                 <span class="text-secondary ms-1">({{ drive.eligibility_year_mode === 'minimum' ? 'min' : 'exact' }})</span>
               </td>
-              <td class="d-none d-lg-table-cell" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
+              <td class="d-none d-lg-table-cell data-value" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
                 {{ formatDate(drive.application_deadline) }}
               </td>
               <td>

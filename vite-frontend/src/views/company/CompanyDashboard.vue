@@ -59,15 +59,15 @@
                 <tbody>
                   <tr v-for="drive in stats.recent_drives" :key="drive.drive_id">
                     <td>
-                      <router-link :to="`/company/drives/${drive.drive_id}`" class="fw-medium text-decoration-none">
+                      <router-link :to="`/company/drives/${drive.drive_id}`" class="fw-medium text-decoration-none data-value">
                         {{ drive.job_title }}
                       </router-link>
                     </td>
                     <td><StatusBadge :status="drive.status" /></td>
-                    <td class="d-none d-md-table-cell" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
+                    <td class="d-none d-md-table-cell data-value" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
                       {{ formatDate(drive.application_deadline) }}
                     </td>
-                    <td class="d-none d-md-table-cell">{{ drive.applicants }}</td>
+                    <td class="d-none d-md-table-cell data-value">{{ drive.applicants }}</td>
                     <td>
                       <router-link :to="`/company/drives/${drive.drive_id}`" class="btn btn-outline-primary btn-sm">
                         View

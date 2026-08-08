@@ -1,70 +1,65 @@
 <template>
   <div>
-    <PageHeader title="Manage Companies" subtitle="Review and approve company registrations" />
+    <PageHeader title="Manage Companies" subtitle="Review and approve company registrations">
+      <template #action>
+        <span class="result-count" v-if="!loading">{{ filteredCompanies.length }} companies</span>
+      </template>
+    </PageHeader>
 
     <SectionCard>
-      <div class="table-toolbar">
-        <ul class="nav nav-pills">
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'all' }" @click="setFilter('all')">All</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Pending' }" @click="setFilter('Pending')">Pending</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Approved' }" @click="setFilter('Approved')">Approved</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: activeFilter === 'Rejected' }" @click="setFilter('Rejected')">Rejected</button>
-          </li>
-        </ul>
-        <input
-          v-model="query"
-          type="text"
-          class="form-control form-control-sm search-input"
-          placeholder="Search companies..."
-        />
-      </div>
+      <FilterBar
+        v-model="activeFilter"
+        v-model:searchValue="query"
+        :filters="filterOptions"
+        searchPlaceholder="Search companies..."
+        ariaLabel="Filter companies by status"
+      />
 
       <div v-if="loading" class="table-skeleton">
         <div v-for="n in 5" :key="n" class="skeleton-row"></div>
       </div>
 
       <div v-else-if="filteredCompanies.length === 0" class="text-center py-5">
-        <EmptyState icon="bi bi-building" title="No companies found" description="No companies match your current filters." />
+        <EmptyState icon="bi bi-building" title="No companies found" description="No companies match your current filters.">
+          <template #action>
+            <button class="btn btn-outline-secondary btn-sm" @click="resetFilters">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+            </button>
+          </template>
+        </EmptyState>
       </div>
 
       <div v-else class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="data-table" aria-label="Companies list">
           <thead>
             <tr>
-              <th>Company Name</th>
-              <th>Email</th>
-              <th class="d-none d-lg-table-cell">HR Contact</th>
-              <th>Status</th>
-              <th class="d-none d-lg-table-cell">Created</th>
-              <th>Actions</th>
+              <th scope="col">Company Name</th>
+              <th scope="col">Email</th>
+              <th scope="col" class="d-none d-lg-table-cell">HR Contact</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="d-none d-lg-table-cell">Created</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="company in filteredCompanies" :key="company.company_profile_id">
-              <td>
-                <router-link :to="`/admin/companies/${company.company_profile_id}`" class="fw-medium text-decoration-none">
-                  {{ company.company_name }}
-                </router-link>
+              <td data-label="Company">
+              <router-link :to="`/admin/companies/${company.company_profile_id}`" class="td-link data-value">
+                    {{ company.company_name }}
+                  </router-link>
               </td>
-              <td>{{ company.email }}</td>
-              <td class="d-none d-lg-table-cell">{{ company.hr_contact }}</td>
-              <td><StatusBadge :status="company.approval_status" /></td>
-              <td class="d-none d-lg-table-cell">{{ formatDate(company.created_at) }}</td>
-              <td>
+              <td data-label="Email" class="td-secondary data-value">{{ company.email }}</td>
+              <td data-label="HR Contact" class="d-none d-lg-table-cell td-secondary data-value">{{ company.hr_contact }}</td>
+              <td data-label="Status"><StatusBadge :status="company.approval_status" /></td>
+              <td data-label="Created" class="d-none d-lg-table-cell td-secondary data-value">{{ formatDate(company.created_at) }}</td>
+              <td data-label="Actions">
                 <div class="d-flex gap-2">
                   <template v-if="company.approval_status === 'Pending'">
-                    <button class="btn btn-success btn-sm" @click="confirmAction(company, 'approve')" :disabled="submitting">
-                      Approve
+                    <button class="btn btn-outline-success btn-sm" @click="confirmAction(company, 'approve')" :disabled="submitting">
+                      <i class="bi bi-check-lg"></i> Approve
                     </button>
-                    <button class="btn btn-danger btn-sm" @click="confirmAction(company, 'reject')" :disabled="submitting">
-                      Reject
+                    <button class="btn btn-outline-danger btn-sm" @click="confirmAction(company, 'reject')" :disabled="submitting">
+                      <i class="bi bi-x-lg"></i> Reject
                     </button>
                   </template>
                   <template v-else-if="company.approval_status === 'Approved'">
@@ -111,6 +106,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getCompanies, approveCompany, rejectCompany, deactivateCompany, activateCompany } from '@/api/admin'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SectionCard from '@/components/common/SectionCard.vue'
+import FilterBar from '@/components/common/FilterBar.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -121,6 +117,13 @@ const submitting = ref(false)
 const query = ref('')
 const activeFilter = ref('all')
 const dialog = ref({ open: false, company: null, action: null })
+
+const filterOptions = computed(() => [
+  { key: 'all', label: 'All', count: companies.value.length },
+  { key: 'Pending', label: 'Pending', count: companies.value.filter((c) => c.approval_status === 'Pending').length },
+  { key: 'Approved', label: 'Approved', count: companies.value.filter((c) => c.approval_status === 'Approved').length },
+  { key: 'Rejected', label: 'Rejected', count: companies.value.filter((c) => c.approval_status === 'Rejected').length }
+])
 
 const filteredCompanies = computed(() => {
   let list = companies.value
@@ -133,8 +136,7 @@ const filteredCompanies = computed(() => {
       (c) =>
         c.company_name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
-        c.hr_contact.toLowerCase().includes(q) ||
-        c.approval_status.toLowerCase().includes(q)
+        c.hr_contact.toLowerCase().includes(q)
     )
   }
   return list
@@ -166,10 +168,6 @@ const dialogConfirmVariant = computed(() => {
   return map[dialog.value.action] || 'primary'
 })
 
-const setFilter = (filter) => {
-  activeFilter.value = filter
-}
-
 const formatDate = (dateStr) => {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -177,6 +175,11 @@ const formatDate = (dateStr) => {
 
 const confirmAction = (company, action) => {
   dialog.value = { open: true, company, action }
+}
+
+const resetFilters = () => {
+  activeFilter.value = 'all'
+  query.value = ''
 }
 
 const executeAction = async () => {
@@ -217,47 +220,9 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.table-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-4);
-}
-
-.search-input {
-  width: 280px;
-  max-width: 100%;
-}
-
-.table-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.skeleton-row {
-  height: 48px;
-  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-hover) 50%, var(--color-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-md);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-@media (max-width: 575.98px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .search-input {
-    width: 100%;
-  }
+.result-count {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
 }
 </style>

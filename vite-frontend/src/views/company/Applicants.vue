@@ -40,13 +40,13 @@
           <tbody>
             <tr v-for="app in applicants" :key="app.application_id">
               <td>
-                <div class="fw-medium">{{ app.student_name }}</div>
+                <div class="fw-medium data-value">{{ app.student_name }}</div>
                 <div class="text-secondary small">{{ app.student_email }}</div>
               </td>
-              <td class="d-none d-lg-table-cell">{{ app.branch }}</td>
-              <td class="d-none d-md-table-cell">{{ app.cgpa }}</td>
-              <td class="d-none d-lg-table-cell">{{ app.year }}</td>
-              <td class="d-none d-lg-table-cell">{{ formatDate(app.application_date) }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ app.branch }}</td>
+              <td class="d-none d-md-table-cell data-value">{{ app.cgpa }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ app.year }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ formatDate(app.application_date) }}</td>
               <td>
                 <StatusBadge :status="app.status" />
                 <span

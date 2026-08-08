@@ -1,64 +1,72 @@
 <template>
   <div>
-    <PageHeader title="All Applications" subtitle="View all student applications" />
+    <PageHeader title="All Applications" subtitle="View all student applications">
+      <template #action>
+        <span class="result-count" v-if="!loading">{{ filteredApplications.length }} applications</span>
+      </template>
+    </PageHeader>
 
     <SectionCard>
-      <div class="table-toolbar">
-        <div></div>
-        <input
-          v-model="query"
-          type="text"
-          class="form-control form-control-sm search-input"
-          placeholder="Search applications..."
-        />
-      </div>
+      <FilterBar
+        v-model="activeFilter"
+        v-model:searchValue="query"
+        :filters="filterOptions"
+        searchPlaceholder="Search applications..."
+        ariaLabel="Filter applications by status"
+      />
 
       <div v-if="loading" class="table-skeleton">
         <div v-for="n in 5" :key="n" class="skeleton-row"></div>
       </div>
 
       <div v-else-if="error" class="text-center py-5">
-        <div class="alert alert-danger" role="alert">{{ error }}</div>
+        <EmptyState icon="bi bi-exclamation-triangle" title="Error loading applications" :description="error" />
       </div>
 
       <div v-else-if="filteredApplications.length === 0" class="text-center py-5">
-        <EmptyState icon="bi bi-file-text" title="No applications" description="No student applications have been submitted yet." />
+        <EmptyState icon="bi bi-file-text" title="No applications found" description="No student applications match your current filters.">
+          <template #action>
+            <button class="btn btn-outline-secondary btn-sm" @click="resetFilters">
+              <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+            </button>
+          </template>
+        </EmptyState>
       </div>
 
       <div v-else class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="data-table" aria-label="Applications list">
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Email</th>
-              <th class="d-none d-lg-table-cell">Branch</th>
-              <th class="d-none d-lg-table-cell">CGPA</th>
-              <th>Company</th>
-              <th>Position</th>
-              <th>Status</th>
-              <th class="d-none d-lg-table-cell">Resume</th>
-              <th class="d-none d-lg-table-cell">Applied</th>
+              <th scope="col">Student</th>
+              <th scope="col" class="d-none d-md-table-cell">Branch</th>
+              <th scope="col" class="d-none d-md-table-cell">CGPA</th>
+              <th scope="col">Company</th>
+              <th scope="col">Position</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="d-none d-lg-table-cell">Resume</th>
+              <th scope="col" class="d-none d-lg-table-cell">Applied</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="app in filteredApplications" :key="app.application_id">
-              <td class="fw-medium">{{ app.student_name }}</td>
-              <td>{{ app.student_email }}</td>
-              <td class="d-none d-lg-table-cell">{{ app.branch }}</td>
-              <td class="d-none d-lg-table-cell">{{ app.cgpa }}</td>
-              <td>{{ app.company_name }}</td>
-              <td>{{ app.job_title }}</td>
-              <td>
-                <StatusBadge :status="app.status" />
-                <span
-                  v-if="app.status === 'Selected' && app.offer_status && app.offer_status !== 'Pending'"
-                  class="offer-status-badge"
-                  :class="'offer-status-badge--' + app.offer_status.toLowerCase().replace(' ', '-')"
-                >
-                  {{ app.offer_status }}
-                </span>
+              <td data-label="Student">
+                <div class="td-link fw-medium data-value">{{ app.student_name }}</div>
+                <div class="td-secondary">{{ app.student_email }}</div>
               </td>
-              <td class="d-none d-lg-table-cell">
+              <td data-label="Branch" class="d-none d-md-table-cell td-secondary data-value">{{ app.branch }}</td>
+              <td data-label="CGPA" class="d-none d-md-table-cell td-secondary data-value">{{ app.cgpa }}</td>
+              <td data-label="Company" class="td-secondary data-value">{{ app.company_name }}</td>
+              <td data-label="Position" class="td-secondary data-value">{{ app.job_title }}</td>
+              <td data-label="Status">
+                <div class="d-flex align-items-center gap-1">
+                  <StatusBadge :status="app.status" />
+                  <StatusBadge
+                    v-if="app.status === 'Selected' && app.offer_status && app.offer_status !== 'Pending'"
+                    :status="app.offer_status"
+                  />
+                </div>
+              </td>
+              <td data-label="Resume" class="d-none d-lg-table-cell">
                 <a
                   v-if="app.resume_path"
                   :href="getResumeUrl(app.resume_path)"
@@ -68,9 +76,9 @@
                 >
                   <i class="bi bi-file-earmark-pdf"></i>
                 </a>
-                <span v-else class="text-secondary small">—</span>
+                <span v-else class="td-secondary">—</span>
               </td>
-              <td class="d-none d-lg-table-cell">{{ formatDate(app.application_date) }}</td>
+              <td data-label="Applied" class="d-none d-lg-table-cell td-secondary data-value">{{ formatDate(app.application_date) }}</td>
             </tr>
           </tbody>
         </table>
@@ -84,6 +92,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getApplications } from '@/api/admin'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SectionCard from '@/components/common/SectionCard.vue'
+import FilterBar from '@/components/common/FilterBar.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
@@ -91,19 +100,33 @@ const applications = ref([])
 const loading = ref(false)
 const query = ref('')
 const error = ref('')
+const activeFilter = ref('all')
+
+const filterOptions = computed(() => [
+  { key: 'all', label: 'All', count: applications.value.length },
+  { key: 'Applied', label: 'Applied', count: applications.value.filter((a) => a.status === 'Applied').length },
+  { key: 'Shortlisted', label: 'Shortlisted', count: applications.value.filter((a) => a.status === 'Shortlisted').length },
+  { key: 'Selected', label: 'Selected', count: applications.value.filter((a) => a.status === 'Selected').length },
+  { key: 'Rejected', label: 'Rejected', count: applications.value.filter((a) => a.status === 'Rejected').length }
+])
 
 const filteredApplications = computed(() => {
-  if (!query.value.trim()) return applications.value
-  const q = query.value.toLowerCase()
-  return applications.value.filter(
-    (a) =>
-      a.student_name.toLowerCase().includes(q) ||
-      a.student_email.toLowerCase().includes(q) ||
-      a.company_name.toLowerCase().includes(q) ||
-      a.job_title.toLowerCase().includes(q) ||
-      a.status.toLowerCase().includes(q) ||
-      (a.offer_status && a.offer_status.toLowerCase().includes(q))
-  )
+  let list = applications.value
+  if (activeFilter.value !== 'all') {
+    list = list.filter((a) => a.status === activeFilter.value)
+  }
+  if (query.value.trim()) {
+    const q = query.value.toLowerCase()
+    list = list.filter(
+      (a) =>
+        a.student_name.toLowerCase().includes(q) ||
+        a.student_email.toLowerCase().includes(q) ||
+        a.company_name.toLowerCase().includes(q) ||
+        a.job_title.toLowerCase().includes(q) ||
+        (a.offer_status && a.offer_status.toLowerCase().includes(q))
+    )
+  }
+  return list
 })
 
 const getResumeUrl = (path) => {
@@ -114,6 +137,11 @@ const getResumeUrl = (path) => {
 const formatDate = (dateStr) => {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const resetFilters = () => {
+  activeFilter.value = 'all'
+  query.value = ''
 }
 
 const fetchData = async () => {
@@ -134,72 +162,9 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.table-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-4);
-}
-
-.search-input {
-  width: 280px;
-  max-width: 100%;
-}
-
-.table-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.skeleton-row {
-  height: 48px;
-  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-hover) 50%, var(--color-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-md);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-@media (max-width: 575.98px) {
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .search-input {
-    width: 100%;
-  }
-}
-
-.offer-status-badge {
-  display: inline-block;
-  font-size: var(--text-xs);
+.result-count {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   font-weight: var(--weight-medium);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  margin-left: var(--space-2);
-  vertical-align: middle;
-}
-
-.offer-status-badge--accepted {
-  background-color: #d1e7dd;
-  color: #0f5132;
-}
-
-.offer-status-badge--declined {
-  background-color: #fff3cd;
-  color: #664d03;
-}
-
-.offer-status-badge--auto-declined {
-  background-color: #e2e3e5;
-  color: #41464b;
 }
 </style>

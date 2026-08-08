@@ -37,19 +37,19 @@
           <tbody>
             <tr v-for="drive in drives" :key="drive.drive_id">
               <td>
-                <router-link :to="`/company/drives/${drive.drive_id}`" class="fw-medium text-decoration-none">
+                <router-link :to="`/company/drives/${drive.drive_id}`" class="fw-medium text-decoration-none data-value">
                   {{ drive.job_title }}
                 </router-link>
               </td>
-              <td class="d-none d-lg-table-cell">
+              <td class="d-none d-lg-table-cell data-value">
                 {{ Array.isArray(drive.eligibility_branches) ? drive.eligibility_branches.join(', ') : drive.eligibility_branch }}
               </td>
-              <td class="d-none d-lg-table-cell">{{ drive.eligibility_cgpa }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ drive.eligibility_cgpa }}</td>
               <td class="d-none d-lg-table-cell">
                 {{ drive.eligibility_year }}
                 <span class="text-secondary ms-1">({{ drive.eligibility_year_mode === 'minimum' ? 'min+' : 'exact' }})</span>
               </td>
-              <td class="d-none d-lg-table-cell" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
+              <td class="d-none d-lg-table-cell data-value" :class="{ 'text-danger': isPastDeadline(drive.application_deadline) }">
                 {{ formatDate(drive.application_deadline) }}
               </td>
               <td><StatusBadge :status="drive.status" /></td>

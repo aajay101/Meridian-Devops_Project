@@ -1,46 +1,55 @@
 <template>
   <div>
     <router-link to="/admin/companies" class="back-link">
-      <i class="bi bi-arrow-left"></i> Companies
+      <i class="bi bi-arrow-left"></i> Back to Companies
     </router-link>
 
-    <div v-if="loading" class="skeleton-card"></div>
+    <div v-if="loading" class="detail-grid">
+      <div class="skeleton-card" style="height: 280px"></div>
+      <div class="skeleton-card" style="height: 180px"></div>
+    </div>
 
     <template v-else-if="company">
       <PageHeader :title="company.company_name" subtitle="Company Details" />
 
-      <div class="row g-4 mb-4">
-        <div class="col-lg-8">
+      <div class="detail-grid mb-4">
+        <div>
           <SectionCard title="Company Information">
-            <div class="info-grid">
-              <div class="info-field">
-                <span class="info-label">Email</span>
-                <span class="info-value">{{ company.email }}</span>
+            <div class="detail-info-grid">
+              <div class="detail-info-field">
+                <span class="detail-info-label">Email</span>
+                <span class="detail-info-value data-value">{{ company.email }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">HR Contact</span>
-                <span class="info-value">{{ company.hr_contact }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">HR Contact</span>
+                <span class="detail-info-value data-value">{{ company.hr_contact }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Website</span>
-                <span class="info-value">{{ company.website || '—' }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Website</span>
+              <span class="detail-info-value data-value">
+                <a v-if="company.website" :href="company.website" target="_blank" rel="noopener" class="external-link">
+                    {{ company.website }}
+                    <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 11px"></i>
+                  </a>
+                  <span v-else class="text-muted">—</span>
+                </span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Created</span>
-                <span class="info-value">{{ formatDate(company.created_at) }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Created</span>
+                <span class="detail-info-value data-value">{{ formatDate(company.created_at) }}</span>
               </div>
             </div>
           </SectionCard>
         </div>
-        <div class="col-lg-4">
+        <div>
           <SectionCard title="Status">
-            <div class="status-group">
-              <div class="status-item">
-                <span class="info-label">Approval</span>
+            <div class="detail-info-grid">
+              <div class="detail-info-field">
+                <span class="detail-info-label">Approval</span>
                 <StatusBadge :status="company.approval_status" />
               </div>
-              <div class="status-item">
-                <span class="info-label">Account</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Account</span>
                 <StatusBadge :status="company.is_active !== false ? 'Active' : 'Inactive'" />
               </div>
             </div>
@@ -177,75 +186,12 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.back-link {
+.external-link {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  text-decoration: none;
-  margin-bottom: var(--space-4);
 }
 
-.back-link:hover {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.info-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.info-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.info-value {
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-}
-
-.status-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.status-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.action-bar {
-  display: flex;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-.skeleton-card {
-  height: 200px;
-  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-hover) 50%, var(--color-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-lg);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.text-muted {
+  color: var(--text-tertiary);
 }
 </style>

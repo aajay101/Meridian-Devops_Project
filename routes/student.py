@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
 from sqlalchemy import asc, func, nullslast, or_
+from sqlalchemy.exc import IntegrityError
 
-from models import Application, CompanyProfile, PlacementDrive, StudentProfile, db
+from models import Application, CompanyProfile, PlacementDrive, User, db
 from utils.cache_utils import (
     cache,
     invalidate_application_created,
@@ -15,7 +16,12 @@ from utils.cache_utils import (
     invalidate_student_profile_data,
     invalidate_student_resume,
 )
-from utils.validators import check_eligibility, student_required, validate_branch
+from utils.validators import (
+    check_eligibility,
+    normalize_indian_phone_number,
+    student_required,
+    validate_branch,
+)
 
 student_bp = Blueprint("student", __name__)
 
@@ -111,6 +117,7 @@ def get_profile():
         "user_id": sp.user_id,
         "name": sp.name,
         "email": sp.user.email,
+        "phone_number": sp.user.phone_number,
         "branch": sp.branch,
         "cgpa": sp.cgpa,
         "year": sp.year,
@@ -127,7 +134,6 @@ def update_profile():
         return jsonify({"success": False, "error": "no_student_profile"}), 403
 
     data = request.get_json(silent=True) or {}
-    protected = {"user_id", "email", "role", "created_at"}
     errors = []
 
     if "cgpa" in data:
@@ -159,6 +165,12 @@ def update_profile():
         else:
             _check_string(data, "name", 120, errors)
 
+    phone_number = None
+    if "phone_number" in data:
+        phone_number = normalize_indian_phone_number(data["phone_number"])
+        if not phone_number:
+            errors.append("phone_number must be a valid Indian mobile number")
+
     if errors:
         return jsonify({"success": False, "error": "validation_failed", "details": errors}), 400
 
@@ -168,6 +180,14 @@ def update_profile():
         sp.year = int(data["year"])
     if "name" in data:
         sp.name = data["name"].strip()
+    if phone_number:
+        existing_user = User.query.filter(
+            User.phone_number == phone_number,
+            User.id != current_user.id,
+        ).first()
+        if existing_user:
+            return jsonify({"success": False, "error": "phone_number_exists"}), 409
+        current_user.phone_number = phone_number
     if "branch" in data:
         if not validate_branch(data["branch"]):
             return jsonify({"success": False, "error": "invalid_branch"}), 400
@@ -176,6 +196,9 @@ def update_profile():
     application_drive_ids = [application.drive_id for application in sp.applications]
     try:
         db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"success": False, "error": "phone_number_exists"}), 409
     except Exception:
         db.session.rollback()
         return jsonify({"success": False, "error": "commit_failed"}), 500
@@ -187,6 +210,7 @@ def update_profile():
         "user_id": sp.user_id,
         "name": sp.name,
         "email": sp.user.email,
+        "phone_number": sp.user.phone_number,
         "branch": sp.branch,
         "cgpa": sp.cgpa,
         "year": sp.year,
@@ -210,6 +234,12 @@ def upload_resume():
 
     if not file.filename.lower().endswith(".pdf"):
         return jsonify({"success": False, "error": "invalid_file_type"}), 400
+
+    # An extension alone is not enough: browsers cannot render arbitrary bytes as a PDF.
+    if file.stream.read(5) != b"%PDF-":
+        file.stream.seek(0)
+        return jsonify({"success": False, "error": "invalid_file_type"}), 400
+    file.stream.seek(0)
 
     if request.content_length and request.content_length > MAX_RESUME_BYTES:
         return jsonify({"success": False, "error": "file_too_large", "max_bytes": MAX_RESUME_BYTES}), 400
@@ -381,6 +411,11 @@ def apply_to_drive(drive_id):
 
         if not file.filename.lower().endswith(".pdf"):
             return jsonify({"success": False, "error": "invalid_file_type"}), 400
+
+        if file.stream.read(5) != b"%PDF-":
+            file.stream.seek(0)
+            return jsonify({"success": False, "error": "invalid_file_type"}), 400
+        file.stream.seek(0)
 
         file.seek(0, os.SEEK_END)
         file_size = file.tell()

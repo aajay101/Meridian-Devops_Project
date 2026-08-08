@@ -1,8 +1,5 @@
-import logging
 from celery import Celery
 from celery.schedules import crontab
-
-logger = logging.getLogger(__name__)
 
 
 def make_celery(flask_app):

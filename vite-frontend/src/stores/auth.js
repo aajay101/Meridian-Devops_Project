@@ -20,11 +20,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const login = async (email, password) => {
+  const login = async (email, password, role) => {
     loading.value = true
     error.value = null
     try {
-      const response = await apiLogin(email, password)
+      const response = await apiLogin(email, password, role)
       if (response.data.success) {
         await fetchUser()
         return response.data.role

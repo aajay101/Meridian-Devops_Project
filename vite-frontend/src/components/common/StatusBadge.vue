@@ -1,5 +1,6 @@
 <template>
-  <span class="status-badge" :class="`status-badge--${variant}`">
+  <span class="status-badge" :class="`status-badge--${variant}`" :aria-label="`Status: ${label || status}`">
+    <span class="status-badge__dot"></span>
     {{ label || status }}
   </span>
 </template>
@@ -40,91 +41,135 @@ const variant = computed(() => {
 
 <style scoped>
 .status-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   line-height: 1;
+  white-space: nowrap;
+}
+
+.status-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .status-badge--pending {
-  background-color: #FFF7ED;
-  color: #C2410C;
-  border: 1px solid #FDBA74;
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+.status-badge--pending .status-badge__dot {
+  background-color: var(--color-warning);
 }
 
 .status-badge--approved {
-  background-color: #DCFCE7;
-  color: #15803D;
-  border: 1px solid #86EFAC;
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+.status-badge--approved .status-badge__dot {
+  background-color: var(--color-success);
 }
 
 .status-badge--rejected {
-  background-color: #FEF2F2;
-  color: #B91C1C;
-  border: 1px solid #FECACA;
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+.status-badge--rejected .status-badge__dot {
+  background-color: var(--color-danger);
 }
 
 .status-badge--closed {
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   color: var(--text-secondary);
-  border: 1px solid var(--color-border);
+}
+.status-badge--closed .status-badge__dot {
+  background-color: var(--text-tertiary);
 }
 
 .status-badge--active {
-  background-color: #DCFCE7;
-  color: #15803D;
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+.status-badge--active .status-badge__dot {
+  background-color: var(--color-success);
 }
 
 .status-badge--inactive {
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   color: var(--text-secondary);
+}
+.status-badge--inactive .status-badge__dot {
+  background-color: var(--text-tertiary);
 }
 
 .status-badge--applied {
-  background-color: var(--color-primary-light);
+  background-color: var(--color-primary-subtle);
   color: var(--color-primary);
+}
+.status-badge--applied .status-badge__dot {
+  background-color: var(--color-primary);
 }
 
 .status-badge--shortlisted {
-  background-color: var(--color-warning-bg);
+  background-color: var(--color-warning-subtle);
   color: var(--color-warning);
+}
+.status-badge--shortlisted .status-badge__dot {
+  background-color: var(--color-warning);
 }
 
 .status-badge--interview-scheduled {
-  background-color: #E0F2FE;
-  color: #0369A1;
-  border: 1px solid #7DD3FC;
+  background-color: var(--color-info-subtle);
+  color: var(--color-info);
+}
+.status-badge--interview-scheduled .status-badge__dot {
+  background-color: var(--color-info);
 }
 
 .status-badge--selected {
-  background-color: var(--color-success-bg);
+  background-color: var(--color-success-subtle);
   color: var(--color-success);
+}
+.status-badge--selected .status-badge__dot {
+  background-color: var(--color-success);
 }
 
 .status-badge--accepted {
-  background-color: #DCFCE7;
-  color: #15803D;
-  border: 1px solid #86EFAC;
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+.status-badge--accepted .status-badge__dot {
+  background-color: var(--color-success);
 }
 
 .status-badge--declined {
-  background-color: #FFF7ED;
-  color: #C2410C;
-  border: 1px solid #FDBA74;
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+.status-badge--declined .status-badge__dot {
+  background-color: var(--color-warning);
 }
 
 .status-badge--auto-declined {
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   color: var(--text-secondary);
-  border: 1px solid var(--color-border);
+}
+.status-badge--auto-declined .status-badge__dot {
+  background-color: var(--text-tertiary);
 }
 
 .status-badge--default {
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   color: var(--text-secondary);
+}
+.status-badge--default .status-badge__dot {
+  background-color: var(--text-tertiary);
 }
 </style>

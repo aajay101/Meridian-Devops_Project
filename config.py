@@ -10,6 +10,8 @@ if load_dotenv:
     load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
+INSTANCE_DIR = BASE_DIR / "instance"
+INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class BaseConfig:
@@ -19,7 +21,7 @@ class BaseConfig:
     SQLALCHEMY_DATABASE_URI = (
         _database_url
         if _database_url
-        else f"sqlite:///{BASE_DIR / 'placement.db'}"
+        else f"sqlite:///{INSTANCE_DIR / 'placement.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

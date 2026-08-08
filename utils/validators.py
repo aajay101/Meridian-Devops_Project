@@ -5,15 +5,64 @@ from functools import wraps
 from flask import jsonify
 from flask_login import current_user, login_required
 
-from constants import BRANCH_SET
+from utils.constants import BRANCH_SET
 
-EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+EMAIL_REGEX = re.compile(
+    r"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+)
+PHONE_REGEX = re.compile(r"^[6-9]\d{9}$")
+
+def normalize_email(email):
+    """Return a canonical email address, or None when it is invalid."""
+    if not isinstance(email, str):
+        return None
+    normalized = email.strip().lower()
+    if not normalized or len(normalized) > 120 or any(char.isspace() for char in normalized):
+        return None
+    return normalized if EMAIL_REGEX.fullmatch(normalized) else None
 
 
 def is_valid_email(email):
-    if not email or not isinstance(email, str):
-        return False
-    return bool(EMAIL_REGEX.match(email))
+    return normalize_email(email) is not None
+
+
+def normalize_indian_phone_number(phone_number):
+    """Normalize supported Indian mobile forms to a 10-digit canonical value."""
+    if not isinstance(phone_number, str):
+        return None
+    value = phone_number.strip()
+    if not value:
+        return None
+    if re.fullmatch(r"\d{10}", value):
+        normalized = value
+    elif re.fullmatch(r"\+91 \d{10}", value) or re.fullmatch(r"\+91\d{10}", value):
+        normalized = value[-10:]
+    else:
+        return None
+    return normalized if PHONE_REGEX.fullmatch(normalized) else None
+
+
+def password_validation_error(password):
+    """Return the API error code for an invalid new password, else None."""
+    if not isinstance(password, str):
+        return "invalid_password"
+    if len(password) < 8:
+        return "password_too_short"
+    if len(password) > 12:
+        return "password_too_long"
+    if any(char.isspace() for char in password):
+        return "password_contains_whitespace"
+    if not re.search(r"[a-z]", password):
+        return "password_missing_lowercase"
+    if not re.search(r"[A-Z]", password):
+        return "password_missing_uppercase"
+    if not re.search(r"\d", password):
+        return "password_missing_number"
+    if not re.search(r"[^A-Za-z0-9\s]", password):
+        return "password_missing_special"
+    return None
 
 
 def validate_branch(branch):

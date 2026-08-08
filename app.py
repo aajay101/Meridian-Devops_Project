@@ -1,12 +1,14 @@
 import json
 import logging
+import os
 import sqlite3
 
-from flask import Flask, current_app, jsonify
+from flask import Flask, current_app, jsonify, send_from_directory
 from flask_login import LoginManager
+from werkzeug.utils import safe_join
 
 from config import DevelopmentConfig
-from constants import BRANCH_MIGRATION_MAP
+from utils.constants import BRANCH_MIGRATION_MAP
 from models import User, db
 from utils.cache_utils import init_cache
 
@@ -147,6 +149,27 @@ def migrate_existing_db():
             conn.commit()
             logger.info("Added eligibility_branches column to placement_drive table")
 
+        cursor.execute("PRAGMA table_info(user)")
+        user_columns = [col[1] for col in cursor.fetchall()]
+        if "phone_number" not in user_columns:
+            cursor.execute("ALTER TABLE user ADD COLUMN phone_number VARCHAR(10)")
+            conn.commit()
+            logger.info("Added phone_number column to user table")
+
+        cursor.execute(
+            "SELECT phone_number FROM user WHERE phone_number IS NOT NULL "
+            "GROUP BY phone_number HAVING COUNT(*) > 1"
+        )
+        duplicate_phone_numbers = cursor.fetchall()
+        if duplicate_phone_numbers:
+            logger.error("Cannot create unique user phone_number index; duplicate values exist")
+        else:
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_user_phone_number "
+                "ON user(phone_number) WHERE phone_number IS NOT NULL"
+            )
+            conn.commit()
+
         cursor.execute("PRAGMA table_info(application)")
         app_columns = [col[1] for col in cursor.fetchall()]
 
@@ -217,6 +240,22 @@ app = create_app()
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "scope": "app"})
+
+
+@app.route("/uploads/resumes/<path:filename>")
+def serve_resume(filename):
+    if not filename:
+        return jsonify({"success": False, "error": "not_found"}), 404
+
+    upload_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "uploads", "resumes"
+    )
+
+    safe_path = safe_join(upload_dir, filename)
+    if safe_path is None or not os.path.isfile(safe_path):
+        return jsonify({"success": False, "error": "not_found"}), 404
+
+    return send_from_directory(upload_dir, filename, mimetype="application/pdf")
 
 
 if __name__ == "__main__":

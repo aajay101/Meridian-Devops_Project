@@ -1,50 +1,53 @@
 <template>
   <div>
     <router-link to="/admin/students" class="back-link">
-      <i class="bi bi-arrow-left"></i> Students
+      <i class="bi bi-arrow-left"></i> Back to Students
     </router-link>
 
-    <div v-if="loading" class="skeleton-card"></div>
+    <div v-if="loading" class="detail-grid">
+      <div class="skeleton-card" style="height: 280px"></div>
+      <div class="skeleton-card" style="height: 140px"></div>
+    </div>
 
     <template v-else-if="student">
       <PageHeader :title="student.name" subtitle="Student Details" />
 
-      <div class="row g-4 mb-4">
-        <div class="col-lg-8">
+      <div class="detail-grid mb-4">
+        <div>
           <SectionCard title="Student Information">
-            <div class="info-grid">
-              <div class="info-field">
-                <span class="info-label">Email</span>
-                <span class="info-value">{{ student.email }}</span>
+            <div class="detail-info-grid">
+              <div class="detail-info-field">
+                <span class="detail-info-label">Email</span>
+                <span class="detail-info-value data-value">{{ student.email }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Branch</span>
-                <span class="info-value">{{ student.branch }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Branch</span>
+                <span class="detail-info-value data-value">{{ student.branch }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">CGPA</span>
-                <span class="info-value">{{ student.cgpa }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">CGPA</span>
+                <span class="detail-info-value data-value">{{ student.cgpa }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Year</span>
-                <span class="info-value">{{ student.year }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Year</span>
+                <span class="detail-info-value data-value">{{ student.year }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Resume</span>
-                <span class="info-value">{{ student.resume_path || 'Not uploaded' }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Resume</span>
+                <span class="detail-info-value data-value">{{ student.resume_path || 'Not uploaded' }}</span>
               </div>
-              <div class="info-field">
-                <span class="info-label">Created</span>
-                <span class="info-value">{{ formatDate(student.created_at) }}</span>
+              <div class="detail-info-field">
+                <span class="detail-info-label">Created</span>
+                <span class="detail-info-value data-value">{{ formatDate(student.created_at) }}</span>
               </div>
             </div>
           </SectionCard>
         </div>
-        <div class="col-lg-4">
+        <div>
           <SectionCard title="Status">
-            <div class="status-group">
-              <div class="status-item">
-                <span class="info-label">Account</span>
+            <div class="detail-info-grid">
+              <div class="detail-info-field">
+                <span class="detail-info-label">Account</span>
                 <StatusBadge :status="student.is_active !== false ? 'Active' : 'Inactive'" />
               </div>
             </div>
@@ -154,77 +157,3 @@ const fetchData = async () => {
 
 onMounted(fetchData)
 </script>
-
-<style scoped>
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  text-decoration: none;
-  margin-bottom: var(--space-4);
-}
-
-.back-link:hover {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.info-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.info-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.info-value {
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-}
-
-.status-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.status-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.action-bar {
-  display: flex;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
-.skeleton-card {
-  height: 200px;
-  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-hover) 50%, var(--color-surface-muted) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-lg);
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-</style>

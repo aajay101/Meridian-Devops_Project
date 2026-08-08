@@ -67,10 +67,25 @@
           type="password"
           class="form-control"
           :class="{ 'is-invalid': studentErrors.password }"
-          placeholder="Min 8 characters"
+          placeholder="8-12 characters"
           required
         />
         <div v-if="studentErrors.password" class="invalid-feedback">{{ studentErrors.password }}</div>
+        <div class="form-text">8-12 characters with uppercase, lowercase, number, special character, and no spaces.</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="student-phone" class="form-label">Phone Number</label>
+        <input
+          id="student-phone"
+          v-model="studentForm.phone_number"
+          type="tel"
+          class="form-control"
+          :class="{ 'is-invalid': studentErrors.phone_number }"
+          placeholder="9876543210"
+          required
+        />
+        <div v-if="studentErrors.phone_number" class="invalid-feedback">{{ studentErrors.phone_number }}</div>
       </div>
 
       <div class="mb-3">
@@ -169,10 +184,25 @@
           type="password"
           class="form-control"
           :class="{ 'is-invalid': companyErrors.password }"
-          placeholder="Min 8 characters"
+          placeholder="8-12 characters"
           required
         />
         <div v-if="companyErrors.password" class="invalid-feedback">{{ companyErrors.password }}</div>
+        <div class="form-text">8-12 characters with uppercase, lowercase, number, special character, and no spaces.</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="company-phone" class="form-label">Phone Number</label>
+        <input
+          id="company-phone"
+          v-model="companyForm.phone_number"
+          type="tel"
+          class="form-control"
+          :class="{ 'is-invalid': companyErrors.phone_number }"
+          placeholder="Account owner's phone number"
+          required
+        />
+        <div v-if="companyErrors.phone_number" class="invalid-feedback">{{ companyErrors.phone_number }}</div>
       </div>
 
       <div class="mb-3">
@@ -235,6 +265,7 @@ const studentForm = reactive({
   name: '',
   email: '',
   password: '',
+  phone_number: '',
   branch: '',
   cgpa: '',
   year: ''
@@ -244,6 +275,7 @@ const companyForm = reactive({
   company_name: '',
   email: '',
   password: '',
+  phone_number: '',
   hr_contact: '',
   website: ''
 })
@@ -252,6 +284,7 @@ const studentErrors = reactive({
   name: '',
   email: '',
   password: '',
+  phone_number: '',
   branch: '',
   cgpa: '',
   year: ''
@@ -261,6 +294,7 @@ const companyErrors = reactive({
   company_name: '',
   email: '',
   password: '',
+  phone_number: '',
   hr_contact: ''
 })
 
@@ -293,11 +327,15 @@ const validateStudent = () => {
     valid = false
   }
 
-  if (!studentForm.password) {
-    studentErrors.password = 'Password is required'
+  const passwordError = getPasswordError(studentForm.password)
+  if (passwordError) {
+    studentErrors.password = passwordError
     valid = false
-  } else if (studentForm.password.length < 8) {
-    studentErrors.password = 'Password must be at least 8 characters'
+  }
+
+  const phoneNumber = normalizePhoneNumber(studentForm.phone_number)
+  if (!phoneNumber) {
+    studentErrors.phone_number = 'Enter a valid Indian mobile number'
     valid = false
   }
 
@@ -341,11 +379,15 @@ const validateCompany = () => {
     valid = false
   }
 
-  if (!companyForm.password) {
-    companyErrors.password = 'Password is required'
+  const passwordError = getPasswordError(companyForm.password)
+  if (passwordError) {
+    companyErrors.password = passwordError
     valid = false
-  } else if (companyForm.password.length < 8) {
-    companyErrors.password = 'Password must be at least 8 characters'
+  }
+
+  const phoneNumber = normalizePhoneNumber(companyForm.phone_number)
+  if (!phoneNumber) {
+    companyErrors.phone_number = 'Enter a valid Indian mobile number'
     valid = false
   }
 
@@ -365,6 +407,14 @@ const getErrorMessage = (code) => {
     email_exists: 'An account with this email already exists',
     invalid_email_format: 'Please enter a valid email',
     password_too_short: 'Password must be at least 8 characters',
+    password_too_long: 'Password must be 12 characters or less',
+    password_missing_lowercase: 'Password must include a lowercase letter',
+    password_missing_uppercase: 'Password must include an uppercase letter',
+    password_missing_number: 'Password must include a number',
+    password_missing_special: 'Password must include a special character',
+    password_contains_whitespace: 'Password cannot contain spaces',
+    invalid_phone_number: 'Enter a valid Indian mobile number',
+    phone_number_exists: 'An account with this phone number already exists',
     invalid_cgpa: 'Please enter a valid CGPA (0-10)',
     invalid_year: 'Please enter a valid year',
     invalid_hr_contact: 'HR contact must be a 10-digit number',
@@ -374,6 +424,34 @@ const getErrorMessage = (code) => {
     server_error: 'Server error. Please try again later'
   }
   return messages[code] || 'An error occurred. Please try again'
+}
+
+const normalizePhoneNumber = (value) => {
+  const trimmed = value.trim()
+  if (/^\d{10}$/.test(trimmed)) return /^[6-9]\d{9}$/.test(trimmed) ? trimmed : ''
+  if (/^\+91 ?\d{10}$/.test(trimmed)) {
+    const normalized = trimmed.slice(-10)
+    return /^[6-9]\d{9}$/.test(normalized) ? normalized : ''
+  }
+  return ''
+}
+
+const getPasswordError = (password) => {
+  if (!password) return 'Password is required'
+  if (password.length < 8) return 'Password must be at least 8 characters'
+  if (password.length > 12) return 'Password must be 12 characters or less'
+  if (/\s/.test(password)) return 'Password cannot contain spaces'
+  if (!/[a-z]/.test(password)) return 'Password must include a lowercase letter'
+  if (!/[A-Z]/.test(password)) return 'Password must include an uppercase letter'
+  if (!/\d/.test(password)) return 'Password must include a number'
+  if (!/[^A-Za-z0-9\s]/.test(password)) return 'Password must include a special character'
+  return ''
+}
+
+const setBackendFieldError = (errors, code) => {
+  if (['invalid_email_format', 'email_exists'].includes(code)) errors.email = getErrorMessage(code)
+  if (['invalid_phone_number', 'phone_number_exists'].includes(code)) errors.phone_number = getErrorMessage(code)
+  if (code.startsWith('password_')) errors.password = getErrorMessage(code)
 }
 
 const handleStudentRegister = async () => {
@@ -387,6 +465,7 @@ const handleStudentRegister = async () => {
       name: studentForm.name.trim(),
       email: studentForm.email.trim().toLowerCase(),
       password: studentForm.password,
+      phone_number: normalizePhoneNumber(studentForm.phone_number),
       branch: studentForm.branch.trim(),
       cgpa: parseFloat(studentForm.cgpa),
       year: parseInt(studentForm.year)
@@ -394,6 +473,7 @@ const handleStudentRegister = async () => {
     successMessage.value = 'Account created successfully! Please sign in.'
     setTimeout(() => router.push('/login'), 2000)
   } catch (err) {
+    setBackendFieldError(studentErrors, authStore.error || '')
     errorMessage.value = getErrorMessage(authStore.error)
   }
 }
@@ -409,6 +489,7 @@ const handleCompanyRegister = async () => {
       company_name: companyForm.company_name.trim(),
       email: companyForm.email.trim().toLowerCase(),
       password: companyForm.password,
+      phone_number: normalizePhoneNumber(companyForm.phone_number),
       hr_contact: companyForm.hr_contact.trim()
     }
     if (companyForm.website.trim()) {
@@ -418,6 +499,7 @@ const handleCompanyRegister = async () => {
     successMessage.value = 'Account created successfully! Please sign in.'
     setTimeout(() => router.push('/login'), 2000)
   } catch (err) {
+    setBackendFieldError(companyErrors, authStore.error || '')
     errorMessage.value = getErrorMessage(authStore.error)
   }
 }

@@ -1,10 +1,7 @@
 import calendar
-import logging
 from datetime import datetime, timezone
 
-from models import Application, PlacementDrive, db
-
-logger = logging.getLogger(__name__)
+from models import Application, PlacementDrive
 
 
 def _get_previous_month(reference_date=None):
