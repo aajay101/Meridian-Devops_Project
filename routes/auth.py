@@ -1,4 +1,7 @@
-from flask import Blueprint, jsonify, request
+import math
+import secrets
+
+from flask import Blueprint, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.exc import IntegrityError
 
@@ -14,13 +17,15 @@ from utils.validators import (
     normalize_email,
     normalize_indian_phone_number,
     password_validation_error,
+    is_safe_website,
     validate_branch,
 )
 
 auth_bp = Blueprint("auth", __name__)
 
 def _json_data():
-    return request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
 
 
 def _missing_fields(data, required_fields):
@@ -28,13 +33,18 @@ def _missing_fields(data, required_fields):
 
 
 def _parse_float(value):
+    if isinstance(value, bool):
+        return None
     try:
-        return float(value)
+        parsed = float(value)
+        return parsed if math.isfinite(parsed) else None
     except (TypeError, ValueError):
         return None
 
 
 def _parse_int(value):
+    if isinstance(value, bool):
+        return None
     if isinstance(value, float) and not value.is_integer():
         return None
     try:
@@ -50,7 +60,7 @@ def _check_string(data, field, max_length, errors):
 
 
 def _validate_hr_contact(hr_contact):
-    if not hr_contact.isdigit() or len(hr_contact) != 10:
+    if not isinstance(hr_contact, str) or not hr_contact.isdigit() or len(hr_contact) != 10:
         return False
     return True
 
@@ -99,10 +109,12 @@ def register_student():
     year = _parse_int(data["year"])
     if year is None:
         return jsonify({"success": False, "error": "invalid_year"}), 400
-    if year < 1:
+    if year < 1 or year > 4:
         return jsonify({"success": False, "error": "invalid_year"}), 400
 
     errors = []
+    if not isinstance(data["name"], str) or not data["name"].strip():
+        errors.append("name is required")
     _check_string(data, "name", 120, errors)
     _check_string(data, "email", 120, errors)
     if errors:
@@ -115,7 +127,7 @@ def register_student():
     user.set_password(data["password"])
     profile = StudentProfile(
         user=user,
-        name=data["name"],
+        name=data["name"].strip(),
         branch=data["branch"],
         cgpa=cgpa,
         year=year,
@@ -167,10 +179,16 @@ def register_company():
         return jsonify({"success": False, "error": "phone_number_exists"}), 409
 
     errors = []
+    if not isinstance(data["company_name"], str) or not data["company_name"].strip():
+        errors.append("company_name is required")
     _check_string(data, "company_name", 120, errors)
     _check_string(data, "hr_contact", 120, errors)
     _check_string(data, "email", 120, errors)
     _check_string(data, "website", 255, errors)
+    if data.get("website") not in (None, "") and not isinstance(data.get("website"), str):
+        errors.append("website must be a string")
+    if not is_safe_website(data.get("website")):
+        errors.append("website must be an absolute HTTP(S) URL")
     if errors:
         return jsonify({"success": False, "error": "string_too_long", "details": errors}), 400
 
@@ -178,7 +196,7 @@ def register_company():
     user.set_password(data["password"])
     profile = CompanyProfile(
         user=user,
-        company_name=data["company_name"],
+        company_name=data["company_name"].strip(),
         hr_contact=data["hr_contact"],
         website=data.get("website"),
         approval_status="Pending",
@@ -209,6 +227,11 @@ def login():
     if missing:
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
+    if not isinstance(data["role"], str):
+        return jsonify({"success": False, "error": "invalid_role"}), 400
+    if not isinstance(data["email"], str) or not isinstance(data["password"], str):
+        return jsonify({"success": False, "error": "invalid_credentials"}), 401
+
     requested_role = data["role"].strip().lower()
     if requested_role not in ("student", "company", "admin"):
         return jsonify({"success": False, "error": "invalid_role"}), 400
@@ -223,8 +246,8 @@ def login():
 
     if user.role == "company":
         cp = CompanyProfile.query.filter_by(user_id=user.id).first()
-        if cp and cp.approval_status == "Rejected":
-            return jsonify({"success": False, "error": "account_disabled"}), 403
+        if cp and cp.approval_status != "Approved":
+            return jsonify({"success": False, "error": "company_not_approved"}), 403
 
     if requested_role != user.role:
         return jsonify({
@@ -234,6 +257,7 @@ def login():
         }), 403
 
     login_user(user)
+    session["csrf_token"] = secrets.token_urlsafe(32)
     return jsonify({"success": True, "user_id": user.id, "role": user.role})
 
 
@@ -241,6 +265,7 @@ def login():
 @login_required
 def logout():
     logout_user()
+    session.pop("csrf_token", None)
     return jsonify({"success": True})
 
 

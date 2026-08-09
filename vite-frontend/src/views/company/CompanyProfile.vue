@@ -47,7 +47,7 @@
                   type="text"
                   class="form-control"
                   :class="{ 'is-invalid': errors.hr_contact }"
-                  placeholder="e.g. John Doe"
+                  placeholder="9876543210"
                   required
                 />
                 <div v-if="errors.hr_contact" class="invalid-feedback">{{ errors.hr_contact }}</div>
@@ -174,6 +174,9 @@ const validate = () => {
 
   if (!form.hr_contact.trim()) {
     errors.hr_contact = 'HR contact is required'
+    valid = false
+  } else if (!/^\d{10}$/.test(form.hr_contact.trim())) {
+    errors.hr_contact = 'HR contact must be a 10-digit number'
     valid = false
   } else if (form.hr_contact.length > 120) {
     errors.hr_contact = 'HR contact must be 120 characters or less'

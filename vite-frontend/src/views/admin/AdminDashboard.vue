@@ -102,7 +102,7 @@ onMounted(async () => {
     }
     const companies = companiesRes.data.companies || []
     const drives = drivesRes.data.drives || []
-    pendingCounts.value.companies = companies.filter(c => c.status === 'Pending').length
+    pendingCounts.value.companies = companies.filter(c => c.approval_status === 'Pending').length
     pendingCounts.value.drives = drives.filter(d => d.status === 'Pending').length
 
     navLinks.value[0].badge = pendingCounts.value.companies

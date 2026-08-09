@@ -1,6 +1,8 @@
 import json
 import re
+from datetime import timezone
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import jsonify
 from flask_login import current_user, login_required
@@ -24,8 +26,31 @@ def normalize_email(email):
     return normalized if EMAIL_REGEX.fullmatch(normalized) else None
 
 
+def escape_like(value):
+    """Escape SQL LIKE metacharacters for literal substring searches."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def format_datetime(value):
+    """Serialize database datetimes as explicit UTC ISO-8601 values."""
+    if value is None:
+        return None
+    normalized = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return normalized.isoformat().replace("+00:00", "Z")
+
+
 def is_valid_email(email):
     return normalize_email(email) is not None
+
+
+def is_safe_website(value):
+    """Allow only absolute HTTP(S) URLs for links rendered by the UI."""
+    if value in (None, ""):
+        return True
+    if not isinstance(value, str) or len(value) > 255:
+        return False
+    parsed = urlsplit(value.strip())
+    return parsed.scheme.lower() in {"http", "https"} and bool(parsed.netloc)
 
 
 def normalize_indian_phone_number(phone_number):
@@ -92,12 +117,12 @@ def validate_branches(branches):
     if len(branches) == 0:
         return False
 
-    if len(branches) != len(set(branches)):
-        return False
-
     for branch in branches:
         if not isinstance(branch, str) or branch not in BRANCH_SET:
             return False
+
+    if len(branches) != len(set(branches)):
+        return False
 
     return True
 

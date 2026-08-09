@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Placement History" subtitle="Your successful placement records" />
+    <PageHeader title="Placement History" subtitle="Your complete placement opportunity history" />
 
     <SectionCard>
       <div v-if="loading" class="table-skeleton">
@@ -14,8 +14,8 @@
       <div v-else-if="placements.length === 0" class="text-center py-5">
         <EmptyState
           icon="bi bi-trophy"
-          title="No placements yet"
-          description="Your successful placement records will appear here once you are selected."
+          title="No placement history yet"
+          description="Expired placement opportunities and applications will appear here."
         />
       </div>
 
@@ -25,7 +25,8 @@
             <tr>
               <th>Company</th>
               <th>Job Title</th>
-              <th class="d-none d-md-table-cell">Selection Date</th>
+              <th class="d-none d-md-table-cell">Deadline</th>
+              <th class="d-none d-lg-table-cell">Selected On</th>
               <th>Status</th>
               <th>Offer Status</th>
               <th class="d-none d-lg-table-cell">Remarks</th>
@@ -33,10 +34,11 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in placements" :key="p.application_id">
+            <tr v-for="p in placements" :key="p.application_id || `drive-${p.drive_id}`">
               <td class="fw-medium data-value">{{ p.company_name }}</td>
               <td class="data-value">{{ p.job_title }}</td>
-              <td class="d-none d-md-table-cell data-value">{{ formatDate(p.selection_date) }}</td>
+              <td class="d-none d-md-table-cell data-value">{{ formatDate(p.application_deadline) }}</td>
+              <td class="d-none d-lg-table-cell data-value">{{ formatDate(p.selection_date) }}</td>
               <td><StatusBadge :status="p.status" /></td>
               <td>
                 <StatusBadge v-if="p.offer_status" :status="p.offer_status" />
@@ -47,9 +49,12 @@
                 <span v-else class="text-tertiary">—</span>
               </td>
               <td>
-                <router-link :to="`/student/drives/${p.drive_id}`" class="btn btn-outline-primary btn-sm">
+                <router-link v-if="p.drive_available !== false" :to="`/student/drives/${p.drive_id}`" class="btn btn-outline-primary btn-sm">
                   View Drive
                 </router-link>
+                <span v-else class="text-secondary small">
+                  {{ p.drive_status === 'Closed' ? 'Drive closed' : 'Deadline passed' }}
+                </span>
               </td>
             </tr>
           </tbody>

@@ -107,6 +107,7 @@ const filterOptions = computed(() => [
   { key: 'Applied', label: 'Applied', count: applications.value.filter((a) => a.status === 'Applied').length },
   { key: 'Shortlisted', label: 'Shortlisted', count: applications.value.filter((a) => a.status === 'Shortlisted').length },
   { key: 'Selected', label: 'Selected', count: applications.value.filter((a) => a.status === 'Selected').length },
+  { key: 'Interview Scheduled', label: 'Interview Scheduled', count: applications.value.filter((a) => a.status === 'Interview Scheduled').length },
   { key: 'Rejected', label: 'Rejected', count: applications.value.filter((a) => a.status === 'Rejected').length }
 ])
 

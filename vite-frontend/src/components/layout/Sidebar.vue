@@ -10,7 +10,7 @@
         <div class="sidebar-section-heading">{{ section.heading }}</div>
         <ul class="sidebar-nav">
           <li v-for="item in section.items" :key="item.label" class="sidebar-nav-item">
-            <router-link :to="item.to" class="sidebar-nav-link">
+            <router-link :to="item.to" class="sidebar-nav-link" @click="emit('close')">
               <i :class="item.icon"></i>
               <span>{{ item.label }}</span>
             </router-link>
@@ -54,7 +54,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -128,6 +128,7 @@ const navSections = computed(() => {
 
 const handleLogout = async () => {
   await authStore.logout()
+  emit('close')
   router.push('/login')
 }
 </script>

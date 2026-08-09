@@ -127,6 +127,8 @@
             v-model="studentForm.year"
             type="number"
             min="1"
+            max="4"
+            step="1"
             class="form-control"
             :class="{ 'is-invalid': studentErrors.year }"
             placeholder="1-4"
@@ -350,9 +352,9 @@ const validateStudent = () => {
     valid = false
   }
 
-  const year = parseInt(studentForm.year)
-  if (isNaN(year) || year < 1) {
-    studentErrors.year = 'Year must be at least 1'
+  const year = Number(studentForm.year)
+  if (!Number.isInteger(year) || year < 1 || year > 4) {
+    studentErrors.year = 'Year must be an integer between 1 and 4'
     valid = false
   }
 
@@ -468,7 +470,7 @@ const handleStudentRegister = async () => {
       phone_number: normalizePhoneNumber(studentForm.phone_number),
       branch: studentForm.branch.trim(),
       cgpa: parseFloat(studentForm.cgpa),
-      year: parseInt(studentForm.year)
+      year: Number(studentForm.year)
     })
     successMessage.value = 'Account created successfully! Please sign in.'
     setTimeout(() => router.push('/login'), 2000)

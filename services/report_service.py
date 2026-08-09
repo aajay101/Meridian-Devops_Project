@@ -1,12 +1,32 @@
 import calendar
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from flask import current_app
+from sqlalchemy import func
 
 from models import Application, PlacementDrive
 
 
+def _configured_timezone():
+    try:
+        timezone_name = current_app.config.get("CELERY_TIMEZONE", "Asia/Kolkata")
+    except RuntimeError:
+        timezone_name = "Asia/Kolkata"
+    try:
+        return ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return timezone.utc
+
+
 def _get_previous_month(reference_date=None):
+    local_timezone = _configured_timezone()
     if reference_date is None:
-        reference_date = datetime.now(timezone.utc)
+        reference_date = datetime.now(local_timezone)
+    elif reference_date.tzinfo is None:
+        reference_date = reference_date.replace(tzinfo=local_timezone)
+    else:
+        reference_date = reference_date.astimezone(local_timezone)
     month = reference_date.month - 1
     year = reference_date.year
     if month == 0:
@@ -16,10 +36,14 @@ def _get_previous_month(reference_date=None):
 
 
 def _month_date_range(year, month):
-    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    local_timezone = _configured_timezone()
+    start_local = datetime(year, month, 1, tzinfo=local_timezone)
     last_day = calendar.monthrange(year, month)[1]
-    end = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
-    return start, end
+    if month == 12:
+        end_local = datetime(year + 1, 1, 1, tzinfo=local_timezone)
+    else:
+        end_local = datetime(year, month + 1, 1, tzinfo=local_timezone)
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 
 def collect_monthly_stats(year, month):
@@ -27,44 +51,45 @@ def collect_monthly_stats(year, month):
 
     drives_conducted = PlacementDrive.query.filter(
         PlacementDrive.created_at >= start,
-        PlacementDrive.created_at <= end,
+        PlacementDrive.created_at < end,
+        PlacementDrive.status.in_(["Approved", "Closed"]),
     ).count()
 
     students_applied = Application.query.filter(
         Application.application_date >= start,
-        Application.application_date <= end,
-    ).count()
+        Application.application_date < end,
+    ).with_entities(func.count(func.distinct(Application.student_profile_id))).scalar()
 
     students_selected = Application.query.filter(
         Application.selection_date >= start,
-        Application.selection_date <= end,
+        Application.selection_date < end,
         Application.status == "Selected",
-    ).count()
+    ).with_entities(func.count(func.distinct(Application.student_profile_id))).scalar()
 
     offers_accepted = Application.query.filter(
         Application.selection_date >= start,
-        Application.selection_date <= end,
+        Application.selection_date < end,
         Application.status == "Selected",
         Application.offer_status == "Accepted",
     ).count()
 
     offers_declined = Application.query.filter(
         Application.selection_date >= start,
-        Application.selection_date <= end,
+        Application.selection_date < end,
         Application.status == "Selected",
         Application.offer_status == "Declined",
     ).count()
 
     offers_auto_declined = Application.query.filter(
         Application.selection_date >= start,
-        Application.selection_date <= end,
+        Application.selection_date < end,
         Application.status == "Selected",
         Application.offer_status == "Auto Declined",
     ).count()
 
     offers_pending = Application.query.filter(
         Application.selection_date >= start,
-        Application.selection_date <= end,
+        Application.selection_date < end,
         Application.status == "Selected",
         Application.offer_status == "Pending",
     ).count()

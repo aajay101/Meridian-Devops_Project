@@ -1,6 +1,7 @@
+import json
+import math
 from datetime import datetime, timezone
 
-import json
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
 from sqlalchemy import func
@@ -19,9 +20,24 @@ from utils.cache_utils import (
     invalidate_drive_deleted,
     invalidate_drive_status,
 )
-from utils.validators import company_required, normalize_indian_phone_number, validate_branches
+from utils.validators import company_required, format_datetime, is_safe_website, normalize_indian_phone_number, validate_branches
 
 company_bp = Blueprint("company", __name__)
+
+
+def _applicant_cache_key(suffix):
+    company_profile = getattr(current_user, "company_profile", None)
+    company_id = getattr(company_profile, "id", "none")
+    drive_id = request.view_args.get("drive_id", "unknown")
+    return f"company:{company_id}:drive:{drive_id}:{suffix}"
+
+
+def _json_object():
+    """Return a JSON object, an empty object for an empty body, or None."""
+    data = request.get_json(silent=True)
+    if data is None:
+        return {} if not request.data else None
+    return data if isinstance(data, dict) else None
 
 
 def _safe_json_loads(raw, default=None):
@@ -31,6 +47,11 @@ def _safe_json_loads(raw, default=None):
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return default if default is not None else []
+
+
+def _as_utc(value):
+    """Normalize an ISO datetime to UTC before SQLite drops timezone info."""
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
 @company_bp.route("/health")
@@ -61,7 +82,7 @@ def get_profile():
             "approval_status": cp.approval_status,
             "email": u.email,
             "phone_number": u.phone_number,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         },
     }
     cache.set(cache_key, response, timeout=300)
@@ -75,7 +96,9 @@ def update_profile():
     if not cp:
         return jsonify({"success": False, "error": "no_company_profile"}), 403
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
     errors = []
 
     if "company_name" in data:
@@ -89,13 +112,19 @@ def update_profile():
         val = data["hr_contact"]
         if not val or not isinstance(val, str) or not val.strip():
             errors.append("hr_contact is required")
+        elif not val.isdigit() or len(val) != 10:
+            errors.append("hr_contact must be a 10-digit number")
         elif len(val) > 120:
             errors.append("hr_contact must be 120 characters or less")
 
     if "website" in data:
         val = data["website"]
-        if val is not None and val != "" and isinstance(val, str) and len(val) > 255:
+        if val is not None and val != "" and not isinstance(val, str):
+            errors.append("website must be a string")
+        elif isinstance(val, str) and len(val) > 255:
             errors.append("website must be 255 characters or less")
+        if not is_safe_website(val):
+            errors.append("website must be an absolute HTTP(S) URL")
 
     phone_number = None
     if "phone_number" in data:
@@ -144,7 +173,7 @@ def update_profile():
             "approval_status": cp.approval_status,
             "email": u.email,
             "phone_number": u.phone_number,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         },
     })
 
@@ -193,7 +222,7 @@ def dashboard():
             "drive_id": d.id,
             "job_title": d.job_title,
             "status": d.status,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "applicants": applicant_counts.get(d.id, 0),
         }
         for d in recent
@@ -236,13 +265,18 @@ class _DriveAccessError(Exception):
 
 
 def _parse_float(value):
+    if isinstance(value, bool):
+        return None
     try:
-        return float(value)
+        parsed = float(value)
+        return parsed if math.isfinite(parsed) else None
     except (TypeError, ValueError):
         return None
 
 
 def _parse_int(value):
+    if isinstance(value, bool):
+        return None
     if isinstance(value, float) and not value.is_integer():
         return None
     try:
@@ -267,7 +301,9 @@ def create_drive():
     if cp.approval_status != "Approved":
         return jsonify({"success": False, "error": "company_not_approved"}), 403
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
     required = ["job_title", "job_description", "eligibility_branches",
                  "eligibility_cgpa", "eligibility_year", "application_deadline"]
     missing = [f for f in required if data.get(f) in (None, "")]
@@ -276,6 +312,10 @@ def create_drive():
 
     errors = []
     _check_string(data, "job_title", 120, errors)
+    if not isinstance(data.get("job_title"), str) or not data["job_title"].strip():
+        errors.append("job_title is required")
+    if not isinstance(data.get("job_description"), str) or not data["job_description"].strip():
+        errors.append("job_description is required")
     if errors:
         return jsonify({"success": False, "error": "string_too_long", "details": errors}), 400
 
@@ -286,13 +326,16 @@ def create_drive():
         deadline = datetime.fromisoformat(data["application_deadline"])
     except (ValueError, TypeError):
         return jsonify({"success": False, "error": "invalid_deadline_format"}), 400
+    deadline_utc = _as_utc(deadline)
+    if deadline_utc <= datetime.now(timezone.utc):
+        return jsonify({"success": False, "error": "deadline_must_be_future"}), 400
 
     eligibility_cgpa = _parse_float(data["eligibility_cgpa"])
-    if eligibility_cgpa is None:
+    if eligibility_cgpa is None or not 0 <= eligibility_cgpa <= 10:
         return jsonify({"success": False, "error": "invalid_eligibility_cgpa"}), 400
 
     eligibility_year = _parse_int(data["eligibility_year"])
-    if eligibility_year is None:
+    if eligibility_year is None or eligibility_year < 1 or eligibility_year > 4:
         return jsonify({"success": False, "error": "invalid_eligibility_year"}), 400
 
     eligibility_year_mode = data.get("eligibility_year_mode", "exact")
@@ -311,7 +354,7 @@ def create_drive():
         eligibility_cgpa=eligibility_cgpa,
         eligibility_year=eligibility_year,
         eligibility_year_mode=eligibility_year_mode,
-        application_deadline=deadline,
+        application_deadline=deadline_utc,
         status="Pending",
     )
     db.session.add(drive)
@@ -356,9 +399,9 @@ def list_drives():
                 "eligibility_cgpa": d.eligibility_cgpa,
                 "eligibility_year": d.eligibility_year,
                 "eligibility_year_mode": d.eligibility_year_mode,
-                "application_deadline": d.application_deadline.isoformat(),
+                "application_deadline": format_datetime(d.application_deadline),
                 "status": d.status,
-                "created_at": d.created_at.isoformat(),
+                "created_at": format_datetime(d.created_at),
             }
             for d in drives
         ],
@@ -391,9 +434,9 @@ def get_drive(drive_id):
             "eligibility_cgpa": drive.eligibility_cgpa,
             "eligibility_year": drive.eligibility_year,
             "eligibility_year_mode": drive.eligibility_year_mode,
-            "application_deadline": drive.application_deadline.isoformat(),
+            "application_deadline": format_datetime(drive.application_deadline),
             "status": drive.status,
-            "created_at": drive.created_at.isoformat(),
+            "created_at": format_datetime(drive.created_at),
         },
     }
     cache.set(cache_key, response, timeout=300)
@@ -411,10 +454,16 @@ def edit_drive(drive_id):
     if drive.status != "Pending":
         return jsonify({"success": False, "error": "drive_not_editable"}), 409
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
 
     errors = []
     _check_string(data, "job_title", 120, errors)
+    if "job_title" in data and (not isinstance(data["job_title"], str) or not data["job_title"].strip()):
+        errors.append("job_title is required")
+    if "job_description" in data and (not isinstance(data["job_description"], str) or not data["job_description"].strip()):
+        errors.append("job_description is required")
     if errors:
         return jsonify({"success": False, "error": "string_too_long", "details": errors}), 400
 
@@ -431,12 +480,12 @@ def edit_drive(drive_id):
         drive.eligibility_branch = data["eligibility_branches"][0]
     if "eligibility_cgpa" in data:
         parsed_cgpa = _parse_float(data["eligibility_cgpa"])
-        if parsed_cgpa is None:
+        if parsed_cgpa is None or not 0 <= parsed_cgpa <= 10:
             return jsonify({"success": False, "error": "invalid_eligibility_cgpa"}), 400
         drive.eligibility_cgpa = parsed_cgpa
     if "eligibility_year" in data:
         parsed_year = _parse_int(data["eligibility_year"])
-        if parsed_year is None:
+        if parsed_year is None or parsed_year < 1 or parsed_year > 4:
             return jsonify({"success": False, "error": "invalid_eligibility_year"}), 400
         drive.eligibility_year = parsed_year
     if "eligibility_year_mode" in data:
@@ -446,9 +495,13 @@ def edit_drive(drive_id):
         drive.eligibility_year_mode = mode
     if "application_deadline" in data:
         try:
-            drive.application_deadline = datetime.fromisoformat(data["application_deadline"])
+            deadline = datetime.fromisoformat(data["application_deadline"])
         except (ValueError, TypeError):
             return jsonify({"success": False, "error": "invalid_deadline_format"}), 400
+        deadline_utc = _as_utc(deadline)
+        if deadline_utc <= datetime.now(timezone.utc):
+            return jsonify({"success": False, "error": "deadline_must_be_future"}), 400
+        drive.application_deadline = deadline_utc
 
     try:
         db.session.commit()
@@ -510,7 +563,7 @@ def close_drive(drive_id):
 
 @company_bp.route("/drives/<int:drive_id>/applicants", methods=["GET"])
 @company_required
-@cache.cached(timeout=60, key_prefix=lambda: f"company:drive:{request.view_args.get('drive_id', 'unknown')}:applicants")
+@cache.cached(timeout=60, key_prefix=lambda: _applicant_cache_key("applicants"))
 def list_applicants(drive_id):
     try:
         cp, drive = _get_owned_drive(drive_id)
@@ -537,9 +590,9 @@ def list_applicants(drive_id):
             "year": sp.year,
             "status": a.status,
             "offer_status": a.offer_status,
-            "application_date": a.application_date.isoformat(),
+            "application_date": format_datetime(a.application_date),
             "resume_path": a.resume_path,
-            "interview_datetime": a.interview_datetime.isoformat() if a.interview_datetime else None,
+            "interview_datetime": format_datetime(a.interview_datetime),
             "interview_location": a.interview_location,
         })
     return jsonify({"success": True, "applicants": result})
@@ -547,7 +600,7 @@ def list_applicants(drive_id):
 
 @company_bp.route("/drives/<int:drive_id>/applicants/count", methods=["GET"])
 @company_required
-@cache.cached(timeout=60, key_prefix=lambda: f"company:drive:{request.view_args.get('drive_id', 'unknown')}:count")
+@cache.cached(timeout=60, key_prefix=lambda: _applicant_cache_key("count"))
 def applicant_count(drive_id):
     try:
         cp, drive = _get_owned_drive(drive_id)
@@ -601,11 +654,18 @@ def reject_application(application_id):
     if app.status not in ("Applied", "Shortlisted", "Interview Scheduled"):
         return jsonify({"success": False, "error": "already_finalized"}), 409
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
+    remarks = data.get("remarks")
+    if remarks is not None and not isinstance(remarks, str):
+        return jsonify({"success": False, "error": "invalid_remarks"}), 400
+    if isinstance(remarks, str) and len(remarks) > 2000:
+        return jsonify({"success": False, "error": "remarks_too_long"}), 400
     app.status = "Rejected"
-    app.selection_date = datetime.now(timezone.utc)
-    if data.get("remarks"):
-        app.remarks = data["remarks"]
+    app.selection_date = None
+    if remarks:
+        app.remarks = remarks
     try:
         db.session.commit()
     except Exception:
@@ -633,19 +693,30 @@ def schedule_interview(application_id):
     if app.status != "Shortlisted":
         return jsonify({"success": False, "error": "already_finalized"}), 409
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
     required = ["interview_datetime"]
     missing = [f for f in required if data.get(f) in (None, "")]
     if missing:
         return jsonify({"success": False, "error": "missing_fields", "fields": missing}), 400
 
+    interview_location = data.get("interview_location")
+    if interview_location is not None and not isinstance(interview_location, str):
+        return jsonify({"success": False, "error": "invalid_interview_location"}), 400
+    if isinstance(interview_location, str) and len(interview_location) > 255:
+        return jsonify({"success": False, "error": "interview_location_too_long"}), 400
+
     try:
         dt = datetime.fromisoformat(data["interview_datetime"])
     except (ValueError, TypeError):
         return jsonify({"success": False, "error": "invalid_datetime_format"}), 400
+    dt_utc = _as_utc(dt)
+    if dt_utc <= datetime.now(timezone.utc):
+        return jsonify({"success": False, "error": "interview_must_be_future"}), 400
 
-    app.interview_datetime = dt
-    app.interview_location = data.get("interview_location")
+    app.interview_datetime = dt_utc
+    app.interview_location = interview_location
     app.status = "Interview Scheduled"
     try:
         db.session.commit()
@@ -685,12 +756,19 @@ def select_application(application_id):
     if pending_offers >= max_offers:
         return jsonify({"success": False, "error": "max_offers_reached"}), 400
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
+    remarks = data.get("remarks")
+    if remarks is not None and not isinstance(remarks, str):
+        return jsonify({"success": False, "error": "invalid_remarks"}), 400
+    if isinstance(remarks, str) and len(remarks) > 2000:
+        return jsonify({"success": False, "error": "remarks_too_long"}), 400
     app.status = "Selected"
     app.offer_status = "Pending"
     app.selection_date = datetime.now(timezone.utc)
-    if data.get("remarks"):
-        app.remarks = data["remarks"]
+    if remarks:
+        app.remarks = remarks
     try:
         db.session.commit()
     except Exception:

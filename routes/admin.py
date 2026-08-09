@@ -11,7 +11,7 @@ from utils.cache_utils import (
     invalidate_company_profile,
     invalidate_drive_status,
 )
-from utils.validators import admin_required
+from utils.validators import admin_required, escape_like, format_datetime
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -78,7 +78,13 @@ def reports_summary():
     total_drives = PlacementDrive.query.count()
     total_applications = Application.query.count()
 
-    applications_by_status = {"Applied": 0, "Shortlisted": 0, "Selected": 0, "Rejected": 0}
+    applications_by_status = {
+        "Applied": 0,
+        "Shortlisted": 0,
+        "Interview Scheduled": 0,
+        "Selected": 0,
+        "Rejected": 0,
+    }
     if total_applications > 0:
         status_counts = (
             db.session.query(Application.status, func.count(Application.id))
@@ -137,7 +143,7 @@ def list_companies():
             "hr_contact": cp.hr_contact,
             "approval_status": cp.approval_status,
             "is_active": u.is_active,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         }
         for cp, u in rows
     ]
@@ -151,16 +157,16 @@ def search_companies():
     if not q:
         return jsonify({"success": True, "companies": []})
 
-    pattern = f"%{q}%"
+    pattern = f"%{escape_like(q)}%"
     rows = (
         db.session.query(CompanyProfile, User)
         .join(User, CompanyProfile.user_id == User.id)
         .filter(
             or_(
-                CompanyProfile.company_name.ilike(pattern),
-                User.email.ilike(pattern),
-                CompanyProfile.hr_contact.ilike(pattern),
-                CompanyProfile.approval_status.ilike(pattern),
+                CompanyProfile.company_name.ilike(pattern, escape="\\"),
+                User.email.ilike(pattern, escape="\\"),
+                CompanyProfile.hr_contact.ilike(pattern, escape="\\"),
+                CompanyProfile.approval_status.ilike(pattern, escape="\\"),
             )
         )
         .order_by(asc(CompanyProfile.created_at))
@@ -174,7 +180,7 @@ def search_companies():
             "hr_contact": cp.hr_contact,
             "approval_status": cp.approval_status,
             "is_active": u.is_active,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         }
         for cp, u in rows
     ]
@@ -200,7 +206,7 @@ def get_company(company_profile_id):
             "website": cp.website,
             "approval_status": cp.approval_status,
             "is_active": u.is_active,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         },
     })
 
@@ -224,6 +230,9 @@ def deactivate_company(company_profile_id):
         return jsonify({"success": False, "error": "commit_failed"}), 500
 
     invalidate_admin_companies()
+    for drive in cp.placement_drives:
+        invalidate_drive_status(cp.id, drive.id)
+    invalidate_company_profile(cp.id)
 
     return jsonify({
         "success": True,
@@ -251,6 +260,9 @@ def activate_company(company_profile_id):
         return jsonify({"success": False, "error": "commit_failed"}), 500
 
     invalidate_admin_companies()
+    for drive in cp.placement_drives:
+        invalidate_drive_status(cp.id, drive.id)
+    invalidate_company_profile(cp.id)
 
     return jsonify({
         "success": True,
@@ -278,7 +290,7 @@ def list_pending_companies():
             "hr_contact": cp.hr_contact,
             "approval_status": cp.approval_status,
             "is_active": u.is_active,
-            "created_at": cp.created_at.isoformat(),
+            "created_at": format_datetime(cp.created_at),
         }
         for cp, u in rows
     ]
@@ -306,7 +318,7 @@ def list_students():
             "year": sp.year,
             "resume_path": sp.resume_path,
             "is_active": u.is_active,
-            "created_at": sp.created_at.isoformat(),
+            "created_at": format_datetime(sp.created_at),
         }
         for sp, u in rows
     ]
@@ -320,7 +332,7 @@ def search_students():
     if not q:
         return jsonify({"success": True, "students": []})
 
-    pattern = f"%{q}%"
+    pattern = f"%{escape_like(q)}%"
     status_expr = case(
         (User.is_active == True, "Active"),
         (User.is_active == False, "Inactive"),
@@ -330,12 +342,12 @@ def search_students():
         .join(User, StudentProfile.user_id == User.id)
         .filter(
             or_(
-                StudentProfile.name.ilike(pattern),
-                User.email.ilike(pattern),
-                StudentProfile.branch.ilike(pattern),
-                func.cast(StudentProfile.cgpa, db.String).ilike(pattern),
-                StudentProfile.year.cast(db.String).ilike(pattern),
-                status_expr.ilike(pattern),
+                StudentProfile.name.ilike(pattern, escape="\\"),
+                User.email.ilike(pattern, escape="\\"),
+                StudentProfile.branch.ilike(pattern, escape="\\"),
+                func.cast(StudentProfile.cgpa, db.String).ilike(pattern, escape="\\"),
+                StudentProfile.year.cast(db.String).ilike(pattern, escape="\\"),
+                status_expr.ilike(pattern, escape="\\"),
             )
         )
         .order_by(asc(StudentProfile.created_at))
@@ -352,7 +364,7 @@ def search_students():
             "year": sp.year,
             "resume_path": sp.resume_path,
             "is_active": u.is_active,
-            "created_at": sp.created_at.isoformat(),
+            "created_at": format_datetime(sp.created_at),
         }
         for sp, u in rows
     ]
@@ -379,7 +391,7 @@ def get_student(student_profile_id):
             "year": sp.year,
             "resume_path": sp.resume_path,
             "is_active": u.is_active,
-            "created_at": sp.created_at.isoformat(),
+            "created_at": format_datetime(sp.created_at),
         },
     })
 
@@ -506,9 +518,9 @@ def list_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -522,17 +534,17 @@ def search_drives():
     if not q:
         return jsonify({"success": True, "drives": []})
 
-    pattern = f"%{q}%"
+    pattern = f"%{escape_like(q)}%"
     rows = (
         db.session.query(PlacementDrive, CompanyProfile)
         .join(CompanyProfile, PlacementDrive.company_profile_id == CompanyProfile.id)
         .filter(
             or_(
-                PlacementDrive.job_title.ilike(pattern),
-                CompanyProfile.company_name.ilike(pattern),
-                PlacementDrive.eligibility_branches.ilike(pattern),
-                PlacementDrive.eligibility_cgpa.cast(db.String).ilike(pattern),
-                PlacementDrive.status.ilike(pattern),
+                PlacementDrive.job_title.ilike(pattern, escape="\\"),
+                CompanyProfile.company_name.ilike(pattern, escape="\\"),
+                PlacementDrive.eligibility_branches.ilike(pattern, escape="\\"),
+                PlacementDrive.eligibility_cgpa.cast(db.String).ilike(pattern, escape="\\"),
+                PlacementDrive.status.ilike(pattern, escape="\\"),
             )
         )
         .order_by(asc(PlacementDrive.created_at))
@@ -550,9 +562,9 @@ def search_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -582,9 +594,9 @@ def list_pending_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -599,6 +611,10 @@ def approve_drive(drive_id):
         return jsonify({"success": False, "error": "not_found"}), 404
     if d.status != "Pending":
         return jsonify({"success": False, "error": "already_finalized"}), 409
+    if d.company_profile.approval_status != "Approved":
+        return jsonify({"success": False, "error": "company_not_approved"}), 409
+    if not d.company_profile.user.is_active:
+        return jsonify({"success": False, "error": "company_inactive"}), 409
     d.status = "Approved"
     try:
         db.session.commit()
@@ -672,9 +688,9 @@ def list_approved_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -703,9 +719,9 @@ def list_rejected_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -734,9 +750,9 @@ def list_closed_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         }
         for d, cp in rows
     ]
@@ -764,9 +780,9 @@ def get_drive(drive_id):
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
             "status": d.status,
-            "created_at": d.created_at.isoformat(),
+            "created_at": format_datetime(d.created_at),
         },
     })
 
@@ -796,7 +812,7 @@ def list_applications():
             "job_title": d.job_title,
             "status": a.status,
             "offer_status": a.offer_status,
-            "application_date": a.application_date.isoformat(),
+            "application_date": format_datetime(a.application_date),
             "resume_path": a.resume_path,
         })
     return jsonify({"success": True, "applications": result})
@@ -809,7 +825,7 @@ def search_applications():
     if not q:
         return jsonify({"success": True, "applications": []})
 
-    pattern = f"%{q}%"
+    pattern = f"%{escape_like(q)}%"
     apps = (
         db.session.query(Application, PlacementDrive, CompanyProfile)
         .join(PlacementDrive, Application.drive_id == PlacementDrive.id)
@@ -818,12 +834,12 @@ def search_applications():
         .join(User, StudentProfile.user_id == User.id)
         .filter(
             or_(
-                StudentProfile.name.ilike(pattern),
-                User.email.ilike(pattern),
-                CompanyProfile.company_name.ilike(pattern),
-                PlacementDrive.job_title.ilike(pattern),
-                Application.status.ilike(pattern),
-                Application.offer_status.ilike(pattern),
+                StudentProfile.name.ilike(pattern, escape="\\"),
+                User.email.ilike(pattern, escape="\\"),
+                CompanyProfile.company_name.ilike(pattern, escape="\\"),
+                PlacementDrive.job_title.ilike(pattern, escape="\\"),
+                Application.status.ilike(pattern, escape="\\"),
+                Application.offer_status.ilike(pattern, escape="\\"),
             )
         )
         .order_by(Application.application_date.desc())
@@ -843,7 +859,7 @@ def search_applications():
             "job_title": d.job_title,
             "status": a.status,
             "offer_status": a.offer_status,
-            "application_date": a.application_date.isoformat(),
+            "application_date": format_datetime(a.application_date),
             "resume_path": a.resume_path,
         })
     return jsonify({"success": True, "applications": result})

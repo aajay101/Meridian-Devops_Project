@@ -80,6 +80,7 @@
                     type="number"
                     min="1"
                     max="4"
+                    step="1"
                     class="form-control"
                     :class="{ 'is-invalid': errors.year }"
                     required
@@ -264,9 +265,9 @@ const validate = () => {
     valid = false
   }
 
-  const year = parseInt(form.year)
-  if (isNaN(year) || year < 1) {
-    errors.year = 'Year must be a positive integer'
+  const year = Number(form.year)
+  if (!Number.isInteger(year) || year < 1 || year > 4) {
+    errors.year = 'Year must be an integer between 1 and 4'
     valid = false
   }
 
@@ -284,7 +285,7 @@ const handleSaveProfile = async () => {
       name: form.name.trim(),
       branch: form.branch,
       cgpa: parseFloat(form.cgpa),
-      year: parseInt(form.year)
+      year: Number(form.year)
     }
     if (form.phone_number.trim()) payload.phone_number = form.phone_number.trim()
     const res = await updateProfile(payload)

@@ -116,9 +116,10 @@
                 <span v-else class="text-secondary small">No resume</span>
               </td>
               <td>
-                <router-link :to="`/student/drives/${app.drive_id}`" class="btn btn-outline-primary btn-sm">
+                <router-link v-if="app.drive_available !== false" :to="`/student/drives/${app.drive_id}`" class="btn btn-outline-primary btn-sm">
                   View Drive
                 </router-link>
+                <span v-else class="text-secondary small">Drive closed</span>
               </td>
             </tr>
           </tbody>

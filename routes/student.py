@@ -1,11 +1,12 @@
 import json
+import math
 import os
 import uuid
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
-from sqlalchemy import asc, func, nullslast, or_
+from sqlalchemy import and_, asc, func, or_
 from sqlalchemy.exc import IntegrityError
 
 from models import Application, CompanyProfile, PlacementDrive, User, db
@@ -18,6 +19,8 @@ from utils.cache_utils import (
 )
 from utils.validators import (
     check_eligibility,
+    escape_like,
+    format_datetime,
     normalize_indian_phone_number,
     student_required,
     validate_branch,
@@ -26,6 +29,14 @@ from utils.validators import (
 student_bp = Blueprint("student", __name__)
 
 MAX_RESUME_BYTES = 5 * 1024 * 1024
+
+
+def _json_object():
+    """Return a JSON object, an empty object for an empty body, or None."""
+    data = request.get_json(silent=True)
+    if data is None:
+        return {} if not request.data else None
+    return data if isinstance(data, dict) else None
 
 
 def _check_string(data, field, max_length, errors):
@@ -41,6 +52,22 @@ def _safe_json_loads(raw, default=None):
         return json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return default if default is not None else []
+
+
+def _as_utc(value):
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
+def _deadline_is_open(value, now=None):
+    if value is None:
+        return False
+    now = now or datetime.now(timezone.utc)
+    try:
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return _as_utc(value) >= now
+    except (TypeError, ValueError):
+        return False
 
 
 @student_bp.route("/health")
@@ -122,7 +149,7 @@ def get_profile():
         "cgpa": sp.cgpa,
         "year": sp.year,
         "resume_path": sp.resume_path,
-        "created_at": sp.created_at.isoformat(),
+        "created_at": format_datetime(sp.created_at),
     })
 
 
@@ -133,26 +160,32 @@ def update_profile():
     if not sp:
         return jsonify({"success": False, "error": "no_student_profile"}), 403
 
-    data = request.get_json(silent=True) or {}
+    data = _json_object()
+    if data is None:
+        return jsonify({"success": False, "error": "invalid_json_body"}), 400
     errors = []
 
     if "cgpa" in data:
         try:
+            if isinstance(data["cgpa"], bool):
+                raise ValueError
             cgpa = float(data["cgpa"])
-            if cgpa < 0.0 or cgpa > 10.0:
+            if not math.isfinite(cgpa) or cgpa < 0.0 or cgpa > 10.0:
                 errors.append("cgpa must be between 0.0 and 10.0")
         except (TypeError, ValueError):
             errors.append("cgpa must be numeric")
 
     if "year" in data:
         raw = data["year"]
-        if isinstance(raw, float) and not raw.is_integer():
+        if isinstance(raw, bool):
+            errors.append("year must be an integer")
+        elif isinstance(raw, float) and not raw.is_integer():
             errors.append("year must be an integer")
         else:
             try:
                 year = int(raw)
-                if year < 1:
-                    errors.append("year must be a positive integer")
+                if year < 1 or year > 4:
+                    errors.append("year must be between 1 and 4")
             except (TypeError, ValueError):
                 errors.append("year must be an integer")
 
@@ -214,7 +247,7 @@ def update_profile():
         "branch": sp.branch,
         "cgpa": sp.cgpa,
         "year": sp.year,
-        "created_at": sp.created_at.isoformat(),
+        "created_at": format_datetime(sp.created_at),
     })
 
 
@@ -241,7 +274,10 @@ def upload_resume():
         return jsonify({"success": False, "error": "invalid_file_type"}), 400
     file.stream.seek(0)
 
-    if request.content_length and request.content_length > MAX_RESUME_BYTES:
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > MAX_RESUME_BYTES:
         return jsonify({"success": False, "error": "file_too_large", "max_bytes": MAX_RESUME_BYTES}), 400
 
     unique_name = f"{uuid.uuid4().hex}.pdf"
@@ -253,22 +289,31 @@ def upload_resume():
     except OSError:
         return jsonify({"success": False, "error": "save_failed"}), 500
 
-    if sp.resume_path:
-        old_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..", sp.resume_path
-        )
-        try:
-            if os.path.isfile(old_path):
-                os.remove(old_path)
-        except OSError:
-            pass
+    previous_resume_path = sp.resume_path
 
     sp.resume_path = "uploads/resumes/" + unique_name
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
+        try:
+            os.remove(save_path)
+        except OSError:
+            pass
         return jsonify({"success": False, "error": "commit_failed"}), 500
+
+    if previous_resume_path:
+        old_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", previous_resume_path
+        )
+        try:
+            resume_is_referenced = Application.query.filter_by(
+                resume_path=previous_resume_path
+            ).first() is not None
+            if os.path.isfile(old_path) and not resume_is_referenced:
+                os.remove(old_path)
+        except OSError:
+            pass
 
     invalidate_student_resume(current_user.id)
 
@@ -287,22 +332,34 @@ def list_drives():
     if not q:
         cached = cache.get("shared:drives_approved")
         if cached is not None:
-            return jsonify(cached)
+            now = datetime.now(timezone.utc)
+            return jsonify({
+                **cached,
+                "drives": [
+                    drive for drive in cached.get("drives", [])
+                    if _deadline_is_open(drive.get("application_deadline"), now)
+                ],
+            })
+
+    now = datetime.now(timezone.utc)
 
     query = (
         db.session.query(PlacementDrive, CompanyProfile)
         .join(CompanyProfile, PlacementDrive.company_profile_id == CompanyProfile.id)
+        .join(User, CompanyProfile.user_id == User.id)
         .filter(PlacementDrive.status == "Approved")
+        .filter(CompanyProfile.approval_status == "Approved", User.is_active.is_(True))
+        .filter(PlacementDrive.application_deadline >= now)
     )
     if q:
-        pattern = f"%{q}%"
+        pattern = f"%{escape_like(q)}%"
         query = query.filter(
             or_(
-                PlacementDrive.job_title.ilike(pattern),
-                PlacementDrive.job_description.ilike(pattern),
-                PlacementDrive.eligibility_branches.ilike(pattern),
-                PlacementDrive.eligibility_cgpa.cast(db.String).ilike(pattern),
-                CompanyProfile.company_name.ilike(pattern),
+                PlacementDrive.job_title.ilike(pattern, escape="\\"),
+                PlacementDrive.job_description.ilike(pattern, escape="\\"),
+                PlacementDrive.eligibility_branches.ilike(pattern, escape="\\"),
+                PlacementDrive.eligibility_cgpa.cast(db.String).ilike(pattern, escape="\\"),
+                CompanyProfile.company_name.ilike(pattern, escape="\\"),
             )
         )
 
@@ -319,8 +376,8 @@ def list_drives():
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
-            "created_at": d.created_at.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
+            "created_at": format_datetime(d.created_at),
         })
 
     response = {"success": True, "drives": result}
@@ -338,7 +395,12 @@ def list_drives():
 @cache.cached(timeout=300, key_prefix=lambda: f"shared:drive:{request.view_args.get('drive_id', 'unknown')}")
 def get_drive(drive_id):
     d = db.session.get(PlacementDrive, drive_id)
-    if not d or d.status != "Approved":
+    if (
+        not d
+        or d.status != "Approved"
+        or d.company_profile.approval_status != "Approved"
+        or not d.company_profile.user.is_active
+    ):
         return jsonify({"success": False, "error": "not_found"}), 404
 
     cp = d.company_profile
@@ -354,8 +416,8 @@ def get_drive(drive_id):
             "eligibility_cgpa": d.eligibility_cgpa,
             "eligibility_year": d.eligibility_year,
             "eligibility_year_mode": d.eligibility_year_mode,
-            "application_deadline": d.application_deadline.isoformat(),
-            "created_at": d.created_at.isoformat(),
+            "application_deadline": format_datetime(d.application_deadline),
+            "created_at": format_datetime(d.created_at),
         },
     })
 
@@ -368,7 +430,12 @@ def apply_to_drive(drive_id):
         return jsonify({"success": False, "error": "no_student_profile"}), 403
 
     d = db.session.get(PlacementDrive, drive_id)
-    if not d or d.status != "Approved":
+    if (
+        not d
+        or d.status != "Approved"
+        or d.company_profile.approval_status != "Approved"
+        or not d.company_profile.user.is_active
+    ):
         return jsonify({"success": False, "error": "drive_not_available"}), 403
 
     if d.application_deadline:
@@ -399,6 +466,7 @@ def apply_to_drive(drive_id):
         return jsonify({"success": False, "error": "max_offers_reached"}), 400
 
     resume_path = None
+    save_path = None
     content_type = request.content_type or ""
 
     if "multipart/form-data" in content_type:
@@ -447,8 +515,21 @@ def apply_to_drive(drive_id):
     db.session.add(app)
     try:
         db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if save_path:
+            try:
+                os.remove(save_path)
+            except OSError:
+                pass
+        return jsonify({"success": False, "error": "already_applied"}), 409
     except Exception:
         db.session.rollback()
+        if save_path:
+            try:
+                os.remove(save_path)
+            except OSError:
+                pass
         return jsonify({"success": False, "error": "commit_failed"}), 500
 
     invalidate_application_created(current_user.id, d.id)
@@ -477,15 +558,21 @@ def list_applications():
         result.append({
             "application_id": a.id,
             "drive_id": d.id,
+            "drive_status": d.status,
+            "drive_available": (
+                d.status == "Approved"
+                and cp.approval_status == "Approved"
+                and d.company_profile.user.is_active
+            ),
             "company_name": cp.company_name,
             "job_title": d.job_title,
             "status": a.status,
             "offer_status": a.offer_status,
-            "application_date": a.application_date.isoformat(),
+            "application_date": format_datetime(a.application_date),
             "resume_path": a.resume_path,
-            "interview_datetime": a.interview_datetime.isoformat() if a.interview_datetime else None,
+            "interview_datetime": format_datetime(a.interview_datetime),
             "interview_location": a.interview_location,
-            "selection_date": a.selection_date.isoformat() if a.selection_date else None,
+            "selection_date": format_datetime(a.selection_date),
             "remarks": a.remarks,
         })
     return jsonify({"success": True, "applications": result})
@@ -493,31 +580,58 @@ def list_applications():
 
 @student_bp.route("/applications/history", methods=["GET"])
 @student_required
-@cache.cached(timeout=120, key_prefix=lambda: f"student:{current_user.id}:applications_history")
 def placement_history():
     sp = _get_student_profile()
     if not sp:
         return jsonify({"success": False, "error": "no_student_profile"}), 403
 
-    apps = (
-        Application.query
-        .filter_by(student_profile_id=sp.id, status="Selected")
-        .order_by(nullslast(Application.selection_date.desc()))
+    now = datetime.now(timezone.utc)
+    history_rows = (
+        db.session.query(PlacementDrive, CompanyProfile, Application)
+        .join(CompanyProfile, PlacementDrive.company_profile_id == CompanyProfile.id)
+        .outerjoin(
+            Application,
+            and_(
+                Application.drive_id == PlacementDrive.id,
+                Application.student_profile_id == sp.id,
+            ),
+        )
+        .filter(
+            or_(
+                Application.id.isnot(None),
+                and_(
+                    PlacementDrive.application_deadline < now,
+                    PlacementDrive.status.in_(("Approved", "Closed")),
+                    CompanyProfile.approval_status == "Approved",
+                ),
+            )
+        )
+        .order_by(PlacementDrive.application_deadline.desc(), PlacementDrive.id.desc())
         .all()
     )
     result = []
-    for a in apps:
-        d = a.drive
-        cp = d.company_profile
+    for d, cp, a in history_rows:
+        status = a.status if a else (
+            "Not Eligible" if check_eligibility(sp, d) else "Did Not Apply"
+        )
         result.append({
-            "application_id": a.id,
+            "application_id": a.id if a else None,
             "drive_id": d.id,
+            "drive_status": d.status,
+            "drive_available": (
+                d.status == "Approved"
+                and cp.approval_status == "Approved"
+                and d.company_profile.user.is_active
+                and _deadline_is_open(d.application_deadline, now)
+            ),
             "company_name": cp.company_name,
             "job_title": d.job_title,
-            "status": a.status,
-            "offer_status": a.offer_status,
-            "selection_date": a.selection_date.isoformat() if a.selection_date else None,
-            "remarks": a.remarks,
+            "application_deadline": format_datetime(d.application_deadline),
+            "application_date": format_datetime(a.application_date) if a else None,
+            "status": status,
+            "offer_status": a.offer_status if a else None,
+            "selection_date": format_datetime(a.selection_date) if a else None,
+            "remarks": a.remarks if a else None,
         })
     return jsonify({"success": True, "placement_history": result})
 

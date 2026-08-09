@@ -128,6 +128,7 @@ const getErrorMessage = (code) => {
   const messages = {
     invalid_credentials: 'Invalid email or password',
     account_disabled: 'Your account has been disabled',
+    company_not_approved: 'Your company account is awaiting admin approval',
     role_mismatch: 'These credentials belong to a different account type. Please select the correct login option.',
     missing_fields: 'Please fill in all fields',
     server_error: 'Server error. Please try again later'

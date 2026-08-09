@@ -81,9 +81,10 @@
                 <tbody>
                   <tr v-for="app in recentApps" :key="app.application_id">
                     <td>
-                      <router-link :to="`/student/drives/${app.drive_id}`" class="fw-medium text-decoration-none data-value">
+                      <router-link v-if="app.drive_available !== false" :to="`/student/drives/${app.drive_id}`" class="fw-medium text-decoration-none data-value">
                         {{ app.job_title }}
                       </router-link>
+                      <span v-else class="fw-medium data-value">{{ app.job_title }}</span>
                     </td>
                     <td class="d-none d-md-table-cell data-value">{{ app.company_name }}</td>
                     <td><StatusBadge :status="app.status" /></td>

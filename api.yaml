@@ -1,0 +1,2761 @@
+openapi: 3.0.3
+
+info:
+  title: Placement Portal Application V2 API
+  version: 2.0.0
+  description: >
+    OpenAPI documentation generated from the implemented Flask API routes in
+    Placement Portal Application V2.
+
+tags:
+  - name: Authentication
+  - name: Student
+  - name: Company
+  - name: Admin
+  - name: Placement Drives
+  - name: Applications
+  - name: Background Jobs / Exports
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Flask-Login session cookie.
+
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Required for authenticated state-changing requests.
+
+    CompanyProfileId:
+      name: company_profile_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    StudentProfileId:
+      name: student_profile_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    DriveId:
+      name: drive_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    ApplicationId:
+      name: application_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    SearchQuery:
+      name: q
+      in: query
+      required: false
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication is required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: The authenticated user is not allowed to perform this operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    BadRequest:
+      description: The request data is invalid or incomplete.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: The operation conflicts with the current resource state.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ServerError:
+      description: The server could not complete the operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    BadGateway:
+      description: A background job or queue operation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        violations:
+          type: array
+          items:
+            type: string
+        fields:
+          type: object
+          additionalProperties: true
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        scope:
+          type: string
+
+    ProtectedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        scope:
+          type: string
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - user_id
+        - role
+      properties:
+        success:
+          type: boolean
+          example: true
+        user_id:
+          type: integer
+        role:
+          type: string
+          enum:
+            - student
+            - company
+            - admin
+
+    MeResponse:
+      type: object
+      required:
+        - authenticated
+      properties:
+        authenticated:
+          type: boolean
+        user_id:
+          type: integer
+        role:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+
+    BranchesResponse:
+      type: object
+      required:
+        - success
+        - branches
+      properties:
+        success:
+          type: boolean
+        branches:
+          type: array
+          items:
+            type: string
+
+    StudentRegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - phone_number
+        - branch
+        - cgpa
+        - year
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        phone_number:
+          type: string
+        branch:
+          type: string
+        cgpa:
+          type: number
+          format: double
+        year:
+          type: integer
+
+    CompanyRegisterRequest:
+      type: object
+      required:
+        - company_name
+        - email
+        - password
+        - phone_number
+        - hr_contact
+      properties:
+        company_name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        phone_number:
+          type: string
+        hr_contact:
+          type: string
+        website:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        role:
+          type: string
+          enum:
+            - student
+            - company
+            - admin
+
+    StudentProfile:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+        branch:
+          type: string
+        cgpa:
+          type: number
+          format: double
+        year:
+          type: integer
+        resume_path:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StudentProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone_number:
+          type: string
+        branch:
+          type: string
+        cgpa:
+          type: number
+          format: double
+        year:
+          type: integer
+
+    CompanyProfile:
+      type: object
+      properties:
+        company_profile_id:
+          type: integer
+        user_id:
+          type: integer
+        company_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+        hr_contact:
+          type: string
+        website:
+          type: string
+          nullable: true
+        approval_status:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    CompanyProfileUpdate:
+      type: object
+      properties:
+        company_name:
+          type: string
+        hr_contact:
+          type: string
+        website:
+          type: string
+        phone_number:
+          type: string
+
+    Drive:
+      type: object
+      properties:
+        drive_id:
+          type: integer
+        company_profile_id:
+          type: integer
+        company_name:
+          type: string
+        job_title:
+          type: string
+        job_description:
+          type: string
+        eligibility_branches:
+          type: array
+          items:
+            type: string
+        eligibility_branch:
+          type: string
+          nullable: true
+        eligibility_cgpa:
+          type: number
+          format: double
+        eligibility_year:
+          type: integer
+        eligibility_year_mode:
+          type: string
+        application_deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CompanyDriveCreate:
+      type: object
+      required:
+        - job_title
+        - job_description
+        - eligibility_branches
+        - eligibility_cgpa
+        - eligibility_year
+        - application_deadline
+      properties:
+        job_title:
+          type: string
+        job_description:
+          type: string
+        eligibility_branches:
+          type: array
+          items:
+            type: string
+        eligibility_cgpa:
+          type: number
+          format: double
+        eligibility_year:
+          type: integer
+        eligibility_year_mode:
+          type: string
+        application_deadline:
+          type: string
+          format: date-time
+
+    CompanyDriveUpdate:
+      type: object
+      properties:
+        job_title:
+          type: string
+        job_description:
+          type: string
+        eligibility_branches:
+          type: array
+          items:
+            type: string
+        eligibility_cgpa:
+          type: number
+          format: double
+        eligibility_year:
+          type: integer
+        eligibility_year_mode:
+          type: string
+        application_deadline:
+          type: string
+          format: date-time
+
+    StudentApplication:
+      type: object
+      properties:
+        application_id:
+          type: integer
+        drive_id:
+          type: integer
+        company_name:
+          type: string
+        job_title:
+          type: string
+        status:
+          type: string
+        offer_status:
+          type: string
+          nullable: true
+        application_date:
+          type: string
+          format: date-time
+        resume_path:
+          type: string
+          nullable: true
+        interview_datetime:
+          type: string
+          format: date-time
+          nullable: true
+        interview_location:
+          type: string
+          nullable: true
+        selection_date:
+          type: string
+          format: date-time
+          nullable: true
+        remarks:
+          type: string
+          nullable: true
+
+    PlacementHistoryItem:
+      type: object
+      properties:
+        application_id:
+          type: integer
+        drive_id:
+          type: integer
+        company_name:
+          type: string
+        job_title:
+          type: string
+        status:
+          type: string
+        offer_status:
+          type: string
+          nullable: true
+        selection_date:
+          type: string
+          format: date-time
+          nullable: true
+        remarks:
+          type: string
+          nullable: true
+
+    CompanyApplicant:
+      type: object
+      properties:
+        application_id:
+          type: integer
+        student_profile_id:
+          type: integer
+        student_name:
+          type: string
+        student_email:
+          type: string
+          format: email
+        branch:
+          type: string
+        cgpa:
+          type: number
+          format: double
+        year:
+          type: integer
+        status:
+          type: string
+        offer_status:
+          type: string
+          nullable: true
+        application_date:
+          type: string
+          format: date-time
+        resume_path:
+          type: string
+          nullable: true
+        interview_datetime:
+          type: string
+          format: date-time
+          nullable: true
+        interview_location:
+          type: string
+          nullable: true
+
+    ApplicationRemarks:
+      type: object
+      properties:
+        remarks:
+          type: string
+
+    ScheduleInterviewRequest:
+      type: object
+      required:
+        - interview_datetime
+      properties:
+        interview_datetime:
+          type: string
+          format: date-time
+        interview_location:
+          type: string
+
+    StudentDashboard:
+      type: object
+      properties:
+        success:
+          type: boolean
+        profile:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+            branch:
+              type: string
+            cgpa:
+              type: number
+            year:
+              type: integer
+        total_applications:
+          type: integer
+        applied:
+          type: integer
+        shortlisted:
+          type: integer
+        interview_scheduled:
+          type: integer
+        selected:
+          type: integer
+        rejected:
+          type: integer
+        pending_offers:
+          type: integer
+        max_active_offers:
+          type: integer
+
+    CompanyDashboard:
+      type: object
+      properties:
+        success:
+          type: boolean
+        total_drives:
+          type: integer
+        approved_drives:
+          type: integer
+        pending_drives:
+          type: integer
+        closed_drives:
+          type: integer
+        total_applicants:
+          type: integer
+        recent_drives:
+          type: array
+          items:
+            type: object
+            properties:
+              drive_id:
+                type: integer
+              job_title:
+                type: string
+              status:
+                type: string
+              application_deadline:
+                type: string
+                format: date-time
+              applicants:
+                type: integer
+
+    AdminCompany:
+      type: object
+      properties:
+        company_profile_id:
+          type: integer
+        user_id:
+          type: integer
+        company_name:
+          type: string
+        email:
+          type: string
+        hr_contact:
+          type: string
+        website:
+          type: string
+          nullable: true
+        approval_status:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    AdminStudent:
+      type: object
+      properties:
+        student_profile_id:
+          type: integer
+        user_id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        branch:
+          type: string
+        cgpa:
+          type: number
+        year:
+          type: integer
+        resume_path:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    AdminApplication:
+      type: object
+      properties:
+        application_id:
+          type: integer
+        student_name:
+          type: string
+        student_email:
+          type: string
+        branch:
+          type: string
+        cgpa:
+          type: number
+        company_name:
+          type: string
+        job_title:
+          type: string
+        status:
+          type: string
+        offer_status:
+          type: string
+          nullable: true
+        application_date:
+          type: string
+          format: date-time
+        resume_path:
+          type: string
+          nullable: true
+
+    AdminReportSummary:
+      type: object
+      properties:
+        success:
+          type: boolean
+        total_students:
+          type: integer
+        total_companies:
+          type: integer
+        total_drives:
+          type: integer
+        total_applications:
+          type: integer
+        applications_by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        selection_rate:
+          type: number
+        offer_status_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        placement_rate:
+          type: number
+
+    ExportQueued:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        task_id:
+          type: string
+        job_type:
+          type: string
+          example: csv_export
+        status:
+          type: string
+          example: PENDING
+
+    ExportStatus:
+      type: object
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+        filename:
+          type: string
+        record_count:
+          type: integer
+        download_url:
+          type: string
+        error:
+          type: string
+
+    DriveActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        drive_id:
+          type: integer
+        status:
+          type: string
+
+    ApplicationActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        application_id:
+          type: integer
+        status:
+          type: string
+        offer_status:
+          type: string
+
+    ProfileStateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        company_profile_id:
+          type: integer
+        student_profile_id:
+          type: integer
+        is_active:
+          type: boolean
+
+paths:
+  /health:
+    get:
+      tags:
+        - Placement Drives
+      summary: Application service health check
+      responses:
+        '200':
+          description: Application service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /uploads/resumes/{filename}:
+    get:
+      tags:
+        - Student
+      summary: Retrieve an authorized resume file
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resume PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/auth/health:
+    get:
+      tags:
+        - Authentication
+      summary: Authentication service health check
+      responses:
+        '200':
+          description: Authentication service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/auth/branches:
+    get:
+      tags:
+        - Authentication
+      summary: List valid student branches
+      responses:
+        '200':
+          description: Available branches.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchesResponse'
+
+  /api/auth/student/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a student account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentRegisterRequest'
+      responses:
+        '201':
+          description: Student account created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/company/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a company account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyRegisterRequest'
+      responses:
+        '201':
+          description: Company account created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: User authenticated and session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out the current user
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: User logged out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get the current authentication state
+      responses:
+        '200':
+          description: Current authentication state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+
+  /api/student/health:
+    get:
+      tags:
+        - Student
+      summary: Student service health check
+      responses:
+        '200':
+          description: Student service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/student/protected:
+    get:
+      tags:
+        - Student
+      summary: Test student-protected access
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student access granted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/student/dashboard:
+    get:
+      tags:
+        - Student
+      summary: Get the student dashboard
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student dashboard data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/student/profile:
+    get:
+      tags:
+        - Student
+      summary: Get the current student profile
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user_id:
+                    type: integer
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  phone_number:
+                    type: string
+                  branch:
+                    type: string
+                  cgpa:
+                    type: number
+                  year:
+                    type: integer
+                  resume_path:
+                    type: string
+                    nullable: true
+                  created_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    put:
+      tags:
+        - Student
+      summary: Update the current student profile
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentProfileUpdate'
+      responses:
+        '200':
+          description: Student profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/student/profile/resume:
+    post:
+      tags:
+        - Student
+      summary: Upload a student resume
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Resume uploaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stored_filename:
+                    type: string
+                  stored_path:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/student/drives:
+    get:
+      tags:
+        - Student
+        - Placement Drives
+      summary: List placement drives available to students
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+      responses:
+        '200':
+          description: Available placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/student/drives/{drive_id}:
+    get:
+      tags:
+        - Student
+        - Placement Drives
+      summary: Get a placement drive available to a student
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+      responses:
+        '200':
+          description: Placement drive details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drive:
+                    $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/student/drives/{drive_id}/apply:
+    post:
+      tags:
+        - Student
+        - Applications
+      summary: Apply to a placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Application submitted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  application_id:
+                    type: integer
+                  status:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/student/applications:
+    get:
+      tags:
+        - Student
+        - Applications
+      summary: List the current student's applications
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student applications.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StudentApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/student/applications/history:
+    get:
+      tags:
+        - Student
+        - Applications
+      summary: Get the student's placement history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Placement history.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  placement_history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlacementHistoryItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/student/applications/{application_id}/accept-offer:
+    post:
+      tags:
+        - Student
+        - Applications
+      summary: Accept a pending offer
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Offer accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/student/applications/{application_id}/decline-offer:
+    post:
+      tags:
+        - Student
+        - Applications
+      summary: Decline a pending offer
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Offer declined.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/health:
+    get:
+      tags:
+        - Company
+      summary: Company service health check
+      responses:
+        '200':
+          description: Company service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/company/protected:
+    get:
+      tags:
+        - Company
+      summary: Test company-protected access
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company access granted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/company/profile:
+    get:
+      tags:
+        - Company
+      summary: Get the current company profile
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  company:
+                    $ref: '#/components/schemas/CompanyProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    put:
+      tags:
+        - Company
+      summary: Update the current company profile
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyProfileUpdate'
+      responses:
+        '200':
+          description: Company profile updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  company:
+                    $ref: '#/components/schemas/CompanyProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/dashboard:
+    get:
+      tags:
+        - Company
+      summary: Get the company dashboard
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company dashboard data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/company/drives:
+    get:
+      tags:
+        - Company
+        - Placement Drives
+      summary: List the company's placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Company
+        - Placement Drives
+      summary: Create a placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyDriveCreate'
+      responses:
+        '201':
+          description: Placement drive created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/drives/{drive_id}:
+    parameters:
+      - $ref: '#/components/parameters/DriveId'
+
+    get:
+      tags:
+        - Company
+        - Placement Drives
+      summary: Get a company placement drive
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Placement drive details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drive:
+                    $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Company
+        - Placement Drives
+      summary: Update a company placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyDriveUpdate'
+      responses:
+        '200':
+          description: Placement drive updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags:
+        - Company
+        - Placement Drives
+      summary: Delete a pending or rejected placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Placement drive deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/drives/{drive_id}/close:
+    post:
+      tags:
+        - Company
+        - Placement Drives
+      summary: Close an approved company placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Placement drive closed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/drives/{drive_id}/applicants:
+    get:
+      tags:
+        - Company
+        - Applications
+      summary: List applicants for a company placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+      responses:
+        '200':
+          description: Applicants for the placement drive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  applicants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompanyApplicant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/company/drives/{drive_id}/applicants/count:
+    get:
+      tags:
+        - Company
+        - Applications
+      summary: Count applicants for a company placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+      responses:
+        '200':
+          description: Applicant count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drive_id:
+                    type: integer
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/company/application/{application_id}/shortlist:
+    post:
+      tags:
+        - Company
+        - Applications
+      summary: Shortlist an application
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Application shortlisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/application/{application_id}/reject:
+    post:
+      tags:
+        - Company
+        - Applications
+      summary: Reject an application
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationRemarks'
+      responses:
+        '200':
+          description: Application rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/application/{application_id}/schedule-interview:
+    post:
+      tags:
+        - Company
+        - Applications
+      summary: Schedule an interview for an application
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleInterviewRequest'
+      responses:
+        '200':
+          description: Interview scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/company/application/{application_id}/select:
+    post:
+      tags:
+        - Company
+        - Applications
+      summary: Select an application and create a pending offer
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationRemarks'
+      responses:
+        '200':
+          description: Applicant selected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/jobs/health:
+    get:
+      tags:
+        - Background Jobs / Exports
+      summary: Background job service health check
+      responses:
+        '200':
+          description: Job service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/jobs/export:
+    post:
+      tags:
+        - Background Jobs / Exports
+      summary: Queue a student CSV export job
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '202':
+          description: CSV export job queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportQueued'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /api/jobs/export/status/{task_id}:
+    get:
+      tags:
+        - Background Jobs / Exports
+      summary: Get CSV export job status
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Current export task status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /api/jobs/export/download/{task_id}:
+    get:
+      tags:
+        - Background Jobs / Exports
+      summary: Download a completed CSV export
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Generated CSV file.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /api/admin/health:
+    get:
+      tags:
+        - Admin
+      summary: Admin service health check
+      responses:
+        '200':
+          description: Admin service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/admin/protected:
+    get:
+      tags:
+        - Admin
+      summary: Test admin-protected access
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Admin access granted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtectedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/dashboard:
+    get:
+      tags:
+        - Admin
+      summary: Get the admin dashboard
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Admin dashboard counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total_students:
+                    type: integer
+                  total_companies:
+                    type: integer
+                  total_drives:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/reports/summary:
+    get:
+      tags:
+        - Admin
+      summary: Get placement reporting summary
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Placement reporting statistics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/companies:
+    get:
+      tags:
+        - Admin
+        - Company
+      summary: List all companies
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  companies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCompany'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/companies/search:
+    get:
+      tags:
+        - Admin
+        - Company
+      summary: Search companies
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+      responses:
+        '200':
+          description: Matching companies.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  companies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCompany'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/companies/pending:
+    get:
+      tags:
+        - Admin
+        - Company
+      summary: List pending company approvals
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Companies with pending approval status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  companies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminCompany'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/company/{company_profile_id}:
+    parameters:
+      - $ref: '#/components/parameters/CompanyProfileId'
+    get:
+      tags:
+        - Admin
+        - Company
+      summary: Get company details
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Company details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  company:
+                    $ref: '#/components/schemas/AdminCompany'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/company/{company_profile_id}/activate:
+    patch:
+      tags:
+        - Admin
+        - Company
+      summary: Activate a company account
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CompanyProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Company account activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/company/{company_profile_id}/deactivate:
+    patch:
+      tags:
+        - Admin
+        - Company
+      summary: Deactivate a company account
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CompanyProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Company account deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/company/{company_profile_id}/approve:
+    post:
+      tags:
+        - Admin
+        - Company
+      summary: Approve a company
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CompanyProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Company approved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  company_profile_id:
+                    type: integer
+                  approval_status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/company/{company_profile_id}/reject:
+    post:
+      tags:
+        - Admin
+        - Company
+      summary: Reject a company
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CompanyProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Company rejected.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  company_profile_id:
+                    type: integer
+                  approval_status:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/students:
+    get:
+      tags:
+        - Admin
+        - Student
+      summary: List all students
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  students:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminStudent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/students/search:
+    get:
+      tags:
+        - Admin
+        - Student
+      summary: Search students
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+      responses:
+        '200':
+          description: Matching students.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  students:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminStudent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/student/{student_profile_id}:
+    parameters:
+      - $ref: '#/components/parameters/StudentProfileId'
+    get:
+      tags:
+        - Admin
+        - Student
+      summary: Get student details
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Student details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  student:
+                    $ref: '#/components/schemas/AdminStudent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/student/{student_profile_id}/activate:
+    patch:
+      tags:
+        - Admin
+        - Student
+      summary: Activate a student account
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Student account activated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/student/{student_profile_id}/deactivate:
+    patch:
+      tags:
+        - Admin
+        - Student
+      summary: Deactivate a student account
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StudentProfileId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Student account deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileStateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/drives:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: List all placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Placement drive list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drives/search:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: Search placement drives
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+      responses:
+        '200':
+          description: Matching placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drives/pending:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: List pending placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Pending placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drives/approved:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: List approved placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Approved placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drives/rejected:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: List rejected placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Rejected placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drives/closed:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: List closed placement drives
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Closed placement drives.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/drive/{drive_id}:
+    get:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: Get placement drive details
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+      responses:
+        '200':
+          description: Placement drive details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  drive:
+                    $ref: '#/components/schemas/Drive'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/drive/{drive_id}/approve:
+    post:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: Approve a pending placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Placement drive approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/drive/{drive_id}/reject:
+    post:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: Reject a pending placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Placement drive rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/drive/{drive_id}/close:
+    post:
+      tags:
+        - Admin
+        - Placement Drives
+      summary: Close an approved placement drive
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DriveId'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: Placement drive closed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriveActionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/admin/applications:
+    get:
+      tags:
+        - Admin
+        - Applications
+      summary: List all applications
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Application list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/applications/search:
+    get:
+      tags:
+        - Admin
+        - Applications
+      summary: Search applications
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+      responses:
+        '200':
+          description: Matching applications.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'

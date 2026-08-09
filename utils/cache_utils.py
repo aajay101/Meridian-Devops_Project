@@ -199,7 +199,30 @@ def _invalidate_company_dashboard_for_drive(drive_id):
 
 
 def invalidate_company_profile(company_profile_id):
-    _delete_keys(f"company:{company_profile_id}:profile")
+    from models import Application, PlacementDrive, db
+
+    keys = [f"company:{company_profile_id}:profile"]
+    drives = PlacementDrive.query.filter_by(company_profile_id=company_profile_id).all()
+    if drives:
+        keys.extend(["shared:drives_approved", "admin:drives_list"])
+        keys.extend(f"shared:drive:{drive.id}" for drive in drives)
+        for drive in drives:
+            keys.extend(_company_applicant_cache_keys(drive.id))
+
+        applications = (
+            db.session.query(Application)
+            .join(PlacementDrive, Application.drive_id == PlacementDrive.id)
+            .filter(PlacementDrive.company_profile_id == company_profile_id)
+            .all()
+        )
+        for user_id in {application.student_profile.user_id for application in applications}:
+            keys.extend([
+                f"student:{user_id}:applications",
+                f"student:{user_id}:applications_history",
+            ])
+        if applications:
+            keys.append("admin:applications_list")
+    _delete_keys(*keys)
 
 
 def invalidate_company_drive(company_profile_id, drive_id):
@@ -210,11 +233,44 @@ def invalidate_company_drive(company_profile_id, drive_id):
     )
 
 
-def invalidate_company_applicants(drive_id):
-    _delete_keys(
+def _company_applicant_cache_keys(drive_id):
+    """Return both legacy and ownership-scoped applicant cache keys."""
+    from models import PlacementDrive
+
+    drive = PlacementDrive.query.get(drive_id)
+    keys = [
         f"company:drive:{drive_id}:applicants",
         f"company:drive:{drive_id}:count",
-    )
+    ]
+    if drive:
+        keys.extend([
+            f"company:{drive.company_profile_id}:drive:{drive_id}:applicants",
+            f"company:{drive.company_profile_id}:drive:{drive_id}:count",
+        ])
+    return keys
+
+
+def _student_application_cache_keys_for_drive(drive_id):
+    from models import Application
+
+    user_ids = {
+        application.student_profile.user_id
+        for application in Application.query.filter_by(drive_id=drive_id).all()
+    }
+    keys = []
+    for user_id in user_ids:
+        keys.extend([
+            f"student:{user_id}:applications",
+            f"student:{user_id}:applications_history",
+        ])
+    return keys
+
+
+def invalidate_company_applicants(drive_id):
+    # Applicant endpoints include the owning company in their cache keys.
+    # Resolve it from the drive so status/application mutations cannot leave
+    # a stale response visible to the owning company.
+    _delete_keys(*_company_applicant_cache_keys(drive_id))
 
 
 def invalidate_drive_status(company_profile_id, drive_id, include_shared=True):
@@ -227,6 +283,7 @@ def invalidate_drive_status(company_profile_id, drive_id, include_shared=True):
     ]
     if include_shared:
         keys.extend(["shared:drives_approved", f"shared:drive:{drive_id}"])
+    keys.extend(_student_application_cache_keys_for_drive(drive_id))
     _delete_keys(*keys)
 
 
@@ -254,14 +311,14 @@ def invalidate_drive_deleted(company_profile_id, drive_id):
 
 
 def invalidate_application_created(student_user_id, drive_id):
-    _delete_keys(
+    keys = [
         f"student:{student_user_id}:dashboard",
         f"student:{student_user_id}:applications",
-        f"company:drive:{drive_id}:applicants",
-        f"company:drive:{drive_id}:count",
         "admin:applications_list",
         "admin:reports_summary",
-    )
+    ]
+    keys.extend(_company_applicant_cache_keys(drive_id))
+    _delete_keys(*keys)
     _invalidate_company_dashboard_for_drive(drive_id)
 
 
@@ -272,8 +329,8 @@ def invalidate_application_status(student_user_id, drive_id, include_history=Fal
     ]
     if include_history:
         keys.append(f"student:{student_user_id}:applications_history")
+    keys.extend(_company_applicant_cache_keys(drive_id))
     keys.extend([
-        f"company:drive:{drive_id}:applicants",
         "admin:applications_list",
         "admin:reports_summary",
     ])
@@ -288,9 +345,7 @@ def invalidate_student_profile_data(student_user_id, application_drive_ids=()):
         "admin:applications_list",
     ]
     for drive_id in dict.fromkeys(application_drive_ids):
-        keys.extend([
-            f"company:drive:{drive_id}:applicants",
-        ])
+        keys.extend(_company_applicant_cache_keys(drive_id))
     _delete_keys(*keys)
 
 
@@ -303,5 +358,5 @@ def invalidate_offer_status(student_user_id, drive_ids=()):
         "admin:reports_summary",
     ]
     for drive_id in dict.fromkeys(drive_ids):
-        keys.append(f"company:drive:{drive_id}:applicants")
+        keys.extend(_company_applicant_cache_keys(drive_id))
     _delete_keys(*keys)

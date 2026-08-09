@@ -67,10 +67,10 @@
             <h2 class="section-title">Latest Placement Drives</h2>
             <p class="section-sub">Recently posted opportunities from leading companies.</p>
           </div>
-          <a href="#" class="view-all">View all drives <i class="bi bi-arrow-right"></i></a>
+          <router-link to="/login" class="view-all">View all drives <i class="bi bi-arrow-right"></i></router-link>
         </div>
         <div class="drive-list">
-          <a v-for="drive in placementDrives" :key="drive.id" href="#" class="drive-card">
+          <router-link v-for="drive in placementDrives" :key="drive.id" to="/login" class="drive-card">
             <div class="drive-title">{{ drive.title }}</div>
             <div class="drive-company">{{ drive.company }}</div>
             <div class="drive-meta">
@@ -83,7 +83,7 @@
                 <i class="bi bi-clock"></i> {{ drive.daysAgo }} days ago
               </span>
             </div>
-          </a>
+          </router-link>
         </div>
       </div>
     </section>
@@ -125,7 +125,7 @@
             <h2 class="section-title">Featured Companies Actively Hiring</h2>
             <p class="section-sub">Leading organizations looking for campus talent.</p>
           </div>
-          <a href="#" class="view-all">View all companies <i class="bi bi-arrow-right"></i></a>
+          <a href="#companies" class="view-all">View all companies <i class="bi bi-arrow-right"></i></a>
         </div>
         <div class="featured-grid">
           <div v-for="co in featuredCompanies" :key="co.name" class="featured-card">
@@ -284,31 +284,31 @@
           <div class="footer-links">
             <div class="footer-col">
               <h5 class="footer-col-title">Students</h5>
-              <a href="#">Explore Drives</a>
-              <a href="#">Applications</a>
-              <a href="#">Placement History</a>
-              <a href="#">Profile</a>
+              <router-link to="/login">Explore Drives</router-link>
+              <router-link to="/student/applications">Applications</router-link>
+              <router-link to="/student/history">Placement History</router-link>
+              <router-link to="/student/profile">Profile</router-link>
             </div>
             <div class="footer-col">
               <h5 class="footer-col-title">Companies</h5>
-              <a href="#">Company Registration</a>
-              <a href="#">Placement Drives</a>
-              <a href="#">Applicants</a>
-              <a href="#">Company Profile</a>
+              <router-link to="/register">Company Registration</router-link>
+              <router-link to="/company/drives">Placement Drives</router-link>
+              <router-link to="/company/drives">Applicants</router-link>
+              <router-link to="/company/profile">Company Profile</router-link>
             </div>
             <div class="footer-col">
               <h5 class="footer-col-title">Placement Cell</h5>
-              <a href="#">Admin Login</a>
-              <a href="#">Manage Drives</a>
-              <a href="#">Student Management</a>
-              <a href="#">Reports</a>
+              <router-link to="/login">Admin Login</router-link>
+              <router-link to="/admin/drives">Manage Drives</router-link>
+              <router-link to="/admin/students">Student Management</router-link>
+              <router-link to="/admin/reports">Reports</router-link>
             </div>
             <div class="footer-col">
               <h5 class="footer-col-title">Platform</h5>
               <a href="#how-it-works">How It Works</a>
-              <a href="#">About</a>
-              <a href="#">Contact</a>
-              <a href="#">Privacy</a>
+              <a href="#how-it-works">About</a>
+              <a href="mailto:placement@recruitlink.local">Contact</a>
+              <a href="#how-it-works">Privacy</a>
             </div>
           </div>
         </div>

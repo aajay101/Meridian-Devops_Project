@@ -11,8 +11,8 @@ from utils.email_utils import send_email
 logger = logging.getLogger(__name__)
 
 
-@celery.task(name="tasks.reports.send_monthly_report")
-def send_monthly_report(year=None, month=None):
+@celery.task(name="tasks.reports.send_monthly_report", bind=True, max_retries=3)
+def send_monthly_report(self, year=None, month=None):
     if year is None or month is None:
         year, month = _get_previous_month()
 
@@ -28,6 +28,10 @@ def send_monthly_report(year=None, month=None):
         logger.info("Monthly report sent to %s for %s", admin_email, stats["month_name"])
     else:
         logger.error("Failed to send monthly report to %s for %s", admin_email, stats["month_name"])
+        raise self.retry(
+            exc=RuntimeError("Monthly report email delivery failed"),
+            countdown=300,
+        )
 
     return {
         "success": success,

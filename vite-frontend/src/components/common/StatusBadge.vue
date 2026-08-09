@@ -31,6 +31,8 @@ const variant = computed(() => {
     Shortlisted: 'shortlisted',
     'Interview Scheduled': 'interview-scheduled',
     Selected: 'selected',
+    'Did Not Apply': 'closed',
+    'Not Eligible': 'rejected',
     Accepted: 'accepted',
     Declined: 'declined',
     'Auto Declined': 'auto-declined'

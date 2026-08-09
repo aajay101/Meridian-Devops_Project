@@ -1,13 +1,15 @@
 import json
 import logging
+import hmac
 import os
+import secrets
 import sqlite3
 
-from flask import Flask, current_app, jsonify, send_from_directory
-from flask_login import LoginManager
+from flask import Flask, current_app, jsonify, request, send_from_directory, session
+from flask_login import LoginManager, current_user
 from werkzeug.utils import safe_join
 
-from config import DevelopmentConfig
+from config import DevelopmentConfig, ProductionConfig
 from utils.constants import BRANCH_MIGRATION_MAP
 from models import User, db
 from utils.cache_utils import init_cache
@@ -41,7 +43,73 @@ def register_error_handlers(app):
         return jsonify({"success": False, "error": "internal_server_error"}), 500
 
 
-def create_app(config_class=DevelopmentConfig):
+def health():
+    return jsonify({"status": "ok", "scope": "app"})
+
+
+def serve_resume(filename):
+    if not filename:
+        return jsonify({"success": False, "error": "not_found"}), 404
+
+    if not current_user.is_authenticated:
+        return jsonify({"success": False, "error": "unauthorized"}), 401
+
+    requested_path = os.path.join("uploads", "resumes", filename).replace(os.sep, "/")
+    authorized = current_user.role == "admin"
+
+    from models import Application, PlacementDrive
+
+    linked_application = Application.query.filter_by(resume_path=requested_path).first()
+
+    if current_user.role == "student" and current_user.student_profile:
+        profile = current_user.student_profile
+        linked_application = Application.query.filter_by(
+            resume_path=requested_path,
+            student_profile_id=profile.id,
+        ).first()
+        authorized = profile.resume_path == requested_path or linked_application is not None
+    elif current_user.role == "company" and current_user.company_profile:
+        linked_application = (
+            db.session.query(Application)
+            .join(PlacementDrive, Application.drive_id == PlacementDrive.id)
+            .filter(
+                Application.resume_path == requested_path,
+                PlacementDrive.company_profile_id == current_user.company_profile.id,
+            )
+            .first()
+        )
+        authorized = (
+            linked_application is not None
+        )
+
+    if not authorized:
+        return jsonify({"success": False, "error": "forbidden"}), 403
+
+    upload_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "uploads", "resumes"
+    )
+
+    safe_path = safe_join(upload_dir, filename)
+    if (safe_path is None or not os.path.isfile(safe_path)) and linked_application:
+        fallback = linked_application.student_profile.resume_path or ""
+        prefix = "uploads/resumes/"
+        if fallback.startswith(prefix):
+            fallback_filename = fallback[len(prefix):]
+            fallback_path = safe_join(upload_dir, fallback_filename)
+            if fallback_path and os.path.isfile(fallback_path):
+                filename = fallback_filename
+                safe_path = fallback_path
+    if safe_path is None or not os.path.isfile(safe_path):
+        return jsonify({"success": False, "error": "not_found"}), 404
+
+    return send_from_directory(upload_dir, filename, mimetype="application/pdf")
+
+
+def create_app(config_class=None):
+    if config_class is None:
+        environment = os.getenv("APP_ENV", os.getenv("FLASK_ENV", "development")).lower()
+        config_class = ProductionConfig if environment == "production" else DevelopmentConfig
+
     app = Flask(__name__)
     app.config.from_object(config_class)
     validate_production_config(app)
@@ -52,6 +120,34 @@ def create_app(config_class=DevelopmentConfig):
 
     register_error_handlers(app)
     register_blueprints(app)
+    app.add_url_rule("/health", endpoint="health", view_func=health)
+    app.add_url_rule(
+        "/uploads/resumes/<path:filename>",
+        endpoint="serve_resume",
+        view_func=serve_resume,
+    )
+
+    @app.before_request
+    def protect_state_changing_requests():
+        if request.method in {"GET", "HEAD", "OPTIONS"}:
+            return None
+        if request.path in {"/api/auth/login", "/api/auth/student/register", "/api/auth/company/register"}:
+            return None
+        if not current_user.is_authenticated:
+            return None
+
+        expected = session.get("csrf_token")
+        supplied = request.headers.get("X-CSRF-Token", "")
+        if not expected or not supplied or not hmac.compare_digest(supplied, expected):
+            return jsonify({"success": False, "error": "csrf_failed"}), 403
+        return None
+
+    @app.after_request
+    def expose_csrf_token(response):
+        token = session.get("csrf_token")
+        if token:
+            response.headers["X-CSRF-Token"] = token
+        return response
 
     with app.app_context():
         db.create_all()
@@ -71,12 +167,17 @@ def validate_production_config(app):
         raise RuntimeError(f"Missing required production config: {', '.join(missing)}")
 
     unsafe_values = {
-        "SECRET_KEY": "dev-secret-key",
+        "SECRET_KEY": {"dev-secret-key", "change-me", "change-this-secret-key", "your-secret-key"},
         "ADMIN_PASSWORD": "admin123",
     }
+
+    def is_unsafe(key, value):
+        unsafe_value = unsafe_values[key]
+        return value in unsafe_value if isinstance(unsafe_value, set) else value == unsafe_value
+
     unsafe = [
         key for key, unsafe_value in unsafe_values.items()
-        if app.config.get(key) == unsafe_value
+        if is_unsafe(key, app.config.get(key))
     ]
     if unsafe:
         raise RuntimeError(f"Unsafe production config defaults: {', '.join(unsafe)}")
@@ -98,7 +199,10 @@ def register_blueprints(app):
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = db.session.get(User, int(user_id))
+    try:
+        user = db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
     if user and not user.is_active:
         return None
     return user
@@ -235,28 +339,6 @@ def _migrate_branches_to_json(cursor, conn):
 
 
 app = create_app()
-
-
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "scope": "app"})
-
-
-@app.route("/uploads/resumes/<path:filename>")
-def serve_resume(filename):
-    if not filename:
-        return jsonify({"success": False, "error": "not_found"}), 404
-
-    upload_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "uploads", "resumes"
-    )
-
-    safe_path = safe_join(upload_dir, filename)
-    if safe_path is None or not os.path.isfile(safe_path):
-        return jsonify({"success": False, "error": "not_found"}), 404
-
-    return send_from_directory(upload_dir, filename, mimetype="application/pdf")
-
 
 if __name__ == "__main__":
     app.run(debug=app.config.get("DEBUG", False))

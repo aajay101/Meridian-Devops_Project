@@ -10,13 +10,9 @@ import os
 
 from flask import current_app
 
+from models import ExportJob, db
+
 logger = logging.getLogger(__name__)
-
-# In-memory task registry: maps task_id -> student_profile_id.
-# Populated by the route when a task is queued.
-# Used by the service to verify ownership on every status check.
-_task_registry = {}
-
 
 def _verify_task_ownership(task_id, student_profile_id):
     """
@@ -37,15 +33,15 @@ def _verify_task_ownership(task_id, student_profile_id):
             "error": str or None,
         }
     """
-    owner_id = _task_registry.get(task_id)
-    if owner_id is None:
+    task = ExportJob.query.filter_by(task_id=task_id).first()
+    if task is None:
         logger.warning("Task not found in registry: task_id=%s", task_id)
         return {"authorized": False, "status": "TASK_NOT_FOUND", "result": None, "error": "Task not found"}
 
-    if owner_id != student_profile_id:
+    if task.student_profile_id != student_profile_id:
         logger.warning(
             "Unauthorized access attempt: task_id=%s requested_by=%s owner=%s",
-            task_id, student_profile_id, owner_id,
+            task_id, student_profile_id, task.student_profile_id,
         )
         return {"authorized": False, "status": "UNAUTHORIZED", "result": None, "error": "Unauthorized access to this task"}
 
@@ -65,8 +61,27 @@ def register_task(task_id, student_profile_id):
     Side Effects:
         Stores mapping in _task_registry.
     """
-    _task_registry[task_id] = student_profile_id
+    db.session.add(ExportJob(task_id=task_id, student_profile_id=student_profile_id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Failed to persist export ownership: task_id=%s", task_id)
+        raise
     logger.info("Task registered: task_id=%s student_profile_id=%s", task_id, student_profile_id)
+
+
+def unregister_task(task_id):
+    """Remove an ownership row when queue submission fails."""
+    task = ExportJob.query.filter_by(task_id=task_id).first()
+    if task is None:
+        return
+    db.session.delete(task)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Failed to remove export ownership: task_id=%s", task_id)
 
 
 def get_export_job_status(task_id, student_profile_id):
@@ -194,7 +209,7 @@ def resolve_download_path(task_id, student_profile_id):
         )
         return {"status": "FILE_MISSING", "error": "Invalid export filename"}
 
-    export_dir = os.path.join(current_app.root_path, "static", "exports")
+    export_dir = os.path.join(current_app.instance_path, "exports")
     filepath = os.path.join(export_dir, safe_filename)
 
     if not os.path.isfile(filepath):

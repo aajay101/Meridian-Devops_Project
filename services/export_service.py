@@ -13,7 +13,7 @@ from datetime import datetime
 
 from flask import current_app
 
-from models import Application, CompanyProfile, PlacementDrive, db
+from models import Application, CompanyProfile, PlacementDrive, StudentProfile, db
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,13 @@ CSV_FIELDNAMES = [
     "Application Date",
     "Selection Date",
 ]
+
+
+def _csv_safe(value):
+    """Prevent spreadsheet formulas from executing when CSVs are opened."""
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
 
 
 def export_student_history(student_profile_id):
@@ -89,6 +96,12 @@ def _query_application_history(student_profile_id):
     Returns:
         list of Row (Application, PlacementDrive, CompanyProfile)
     """
+    if not isinstance(student_profile_id, int) or isinstance(student_profile_id, bool):
+        raise ValueError("Invalid student profile ID")
+
+    if StudentProfile.query.get(student_profile_id) is None:
+        raise ValueError("Student profile not found")
+
     results = (
         db.session.query(Application, PlacementDrive, CompanyProfile)
         .join(PlacementDrive, Application.drive_id == PlacementDrive.id)
@@ -128,7 +141,7 @@ def _write_csv_file(filename, applications):
     Raises:
         IOError — if file write fails
     """
-    export_dir = os.path.join(current_app.root_path, "static", "exports")
+    export_dir = os.path.join(current_app.instance_path, "exports")
     os.makedirs(export_dir, exist_ok=True)
     filepath = os.path.join(export_dir, filename)
 
@@ -146,11 +159,11 @@ def _write_csv_file(filename, applications):
                 app_date = app_record.application_date.strftime("%Y-%m-%d")
             writer.writerow({
                 "Student ID": app_record.student_profile_id,
-                "Student Name": student_name,
-                "Company Name": company.company_name,
-                "Drive Title": drive.job_title,
-                "Application Status": app_record.status,
-                "Offer Status": offer_status,
+                "Student Name": _csv_safe(student_name),
+                "Company Name": _csv_safe(company.company_name),
+                "Drive Title": _csv_safe(drive.job_title),
+                "Application Status": _csv_safe(app_record.status),
+                "Offer Status": _csv_safe(offer_status),
                 "Application Date": app_date,
                 "Selection Date": selection_date,
             })
@@ -166,7 +179,7 @@ def cleanup_old_exports():
     Silently ignores permission errors or missing directories.
     """
     try:
-        export_dir = os.path.join(current_app.root_path, "static", "exports")
+        export_dir = os.path.join(current_app.instance_path, "exports")
     except RuntimeError:
         return
 

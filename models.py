@@ -1,10 +1,20 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
+
+
+@event.listens_for(Engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    if dbapi_connection.__class__.__module__ == "sqlite3":
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def utc_now():
@@ -129,3 +139,21 @@ class Application(db.Model):
 
     student_profile = db.relationship("StudentProfile", back_populates="applications")
     drive = db.relationship("PlacementDrive", back_populates="applications")
+
+
+class ExportJob(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    student_profile_id = db.Column(
+        db.Integer, db.ForeignKey("student_profile.id"), nullable=False
+    )
+    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class ReminderRun(db.Model):
+    """Durable idempotency record for the daily reminder batch."""
+
+    run_date = db.Column(db.Date, primary_key=True)
+    status = db.Column(db.String(20), nullable=False, default="running")
+    started_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)

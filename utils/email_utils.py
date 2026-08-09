@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from html import escape
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -31,7 +32,7 @@ def _create_smtp_connection(config):
 
 def _build_message(to, subject, from_addr, html_body=None, text_body=None):
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
+    msg["Subject"] = str(subject).replace("\r", " ").replace("\n", " ")
     msg["From"] = from_addr
     msg["To"] = to
 
@@ -90,12 +91,19 @@ def send_email(to, subject, html_body=None, text_body=None):
 
 
 def build_reminder_email(student_name, company_name, job_title, deadline_str):
-    subject = f"Reminder: {job_title} at {company_name} — Deadline {deadline_str}"
+    def safe_text(value):
+        return escape(str(value).replace("\r", " ").replace("\n", " "))
+
+    safe_student_name = safe_text(student_name)
+    safe_company_name = safe_text(company_name)
+    safe_job_title = safe_text(job_title)
+    safe_deadline = safe_text(deadline_str)
+    subject = f"Reminder: {safe_job_title} at {safe_company_name} — Deadline {safe_deadline}"
     html_body = (
-        f"<p>Hi {student_name},</p>"
+        f"<p>Hi {safe_student_name},</p>"
         f"<p>This is a reminder that the application deadline for "
-        f"<strong>{job_title}</strong> at <strong>{company_name}</strong> "
-        f"is approaching on <strong>{deadline_str}</strong>.</p>"
+        f"<strong>{safe_job_title}</strong> at <strong>{safe_company_name}</strong> "
+        f"is approaching on <strong>{safe_deadline}</strong>.</p>"
         f"<p>Please submit your application before the deadline.</p>"
         f"<p>Good luck!</p>"
     )

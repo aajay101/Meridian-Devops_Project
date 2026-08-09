@@ -24,6 +24,9 @@ class BaseConfig:
         else f"sqlite:///{INSTANCE_DIR / 'placement.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     # 127.0.0.1 avoids IPv6 (::1) double-timeout on Windows.
@@ -78,5 +81,6 @@ class TestConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     DEBUG = False
     ENV = "production"
+    SESSION_COOKIE_SECURE = True
     SECRET_KEY = os.getenv("SECRET_KEY")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
