@@ -10,129 +10,56 @@ env/
 
 # Environment
 .env
+*.local
 
-# SQLite
+# Databases and runtime state
 *.db
 *.sqlite
 *.sqlite3
-
-# Redis
-dump.rdb
-
-# Celery
-celerybeat-schedule*
-celery_err.txt
-celery_log.txt
-
-# Logs
-logs/*
-!logs/.gitkeep
-*.log
-
-# Exports
-static/exports/*
-!static/exports/.gitkeep
-
-# Uploads
-uploads/resumes/*
-!uploads/resumes/.gitkeep
-
-# Coverage
-.coverage
-htmlcov/
-.pytest_cache/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Node
-node_modules/
-dist/
-dist-ssr/
-
-# Runtime caches
-.cache/
-
-# Binary/data files
-*.xlsx
-*.pdf
-
-# Security
-credentials.txt
-demo_credentials.md
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyd
-
-# Virtual environments
-venv/
-.venv/
-env/
-
-# Environment
-.env
-
-# SQLite
-*.db
-*.sqlite
-*.sqlite3
-
-# Redis
-dump.rdb
-
-# Celery
-celerybeat-schedule*
-celery_err.txt
-celery_log.txt
-
-# Logs
-logs/*
-!logs/.gitkeep
-*.log
-
-# Exports
-static/exports/*
-!static/exports/.gitkeep
-
-# Uploads
-uploads/resumes/*
-!uploads/resumes/.gitkeep
-
-# Coverage
-.coverage
-htmlcov/
-.pytest_cache/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Node
-node_modules/
-dist/
-dist-ssr/
-
-# Runtime caches
-.cache/
-
-# Binary/data files
-*.xlsx
-*.pdf
-
-# Security
-credentials.txt
-demo_credentials.md
-
-# Runtime database
 instance/
+dump.rdb
+celerybeat-schedule*
+celery_*.txt
+
+# Backend-generated files
+src/backend/logs/*
+!src/backend/logs/.gitkeep
+*.log
+src/backend/static/exports/*
+!src/backend/static/exports/.gitkeep
+src/backend/uploads/resumes/*
+!src/backend/uploads/resumes/.gitkeep
+
+# Coverage and caches
+.coverage
+htmlcov/
+coverage/
+.pytest_cache/
+.cache/
+
+# JavaScript
+node_modules/
+dist/
+dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Security
+credentials.txt
+demo_credentials.md
