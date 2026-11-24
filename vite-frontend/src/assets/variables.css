@@ -11,9 +11,6 @@
   /* ============================================
      SECONDARY COLORS
      ============================================ */
-  --color-secondary: #71717A;
-  --color-secondary-hover: #52525B;
-  --color-secondary-subtle: #F4F4F5;
 
   /* ============================================
      STATUS COLORS
@@ -42,7 +39,6 @@
   --color-surface-hover: #F4F4F5;
   --color-surface-active: #E4E4E7;
   --color-surface-muted: #F4F4F5;
-  --color-surface-overlay: rgba(0, 0, 0, 0.5);
 
   /* ============================================
      BORDER COLORS
@@ -75,12 +71,8 @@
   --text-primary: #18181B;
   --text-secondary: #52525B;
   --text-tertiary: #A1A1AA;
-  --text-quaternary: #D4D4D8;
-  --text-disabled: #D4D4D8;
   --text-muted: #71717A;
   --text-inverse: #FAFAFA;
-  --text-on-primary: #FAFAFA;
-  --text-on-dark: #FAFAFA;
   --text-link: #6D28D9;
   --text-link-hover: #5B21B6;
 
@@ -92,15 +84,11 @@
   /* ============================================
      DISABLED COLORS
      ============================================ */
-  --color-disabled-bg: #F4F4F5;
-  --color-disabled-border: #E4E4E7;
-  --color-disabled-text: #A1A1AA;
 
   /* ============================================
      SPACING SCALE (base: 4px)
      ============================================ */
   --space-0: 0px;
-  --space-px: 1px;
   --space-0-5: 2px;
   --space-1: 4px;
   --space-1-5: 6px;
@@ -111,9 +99,7 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
-  --space-10: 40px;
   --space-12: 48px;
-  --space-16: 64px;
 
   /* ============================================
      BORDER RADIUS
@@ -122,7 +108,6 @@
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
-  --radius-2xl: 16px;
   --radius-full: 9999px;
 
   /* ============================================
@@ -139,7 +124,6 @@
   --text-2xl: 28px;
   --text-3xl: 36px;
   --text-stat: 30px;
-  --text-stat-lg: 40px;
 
   --weight-regular: 400;
   --weight-medium: 500;
@@ -152,14 +136,12 @@
   --leading-relaxed: 1.65;
 
   --tracking-tight: -0.02em;
-  --tracking-normal: 0;
   --tracking-wide: 0.04em;
   --tracking-wider: 0.08em;
 
   /* ============================================
      SHADOWS / ELEVATION
      ============================================ */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
@@ -174,11 +156,9 @@
   --duration-base: 150ms;
   --duration-normal: 150ms;
   --duration-slow: 200ms;
-  --duration-slower: 300ms;
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ============================================

@@ -48,7 +48,6 @@ class BaseConfig:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
 
-    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@placement.local")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 

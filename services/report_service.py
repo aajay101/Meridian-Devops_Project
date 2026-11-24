@@ -38,7 +38,6 @@ def _get_previous_month(reference_date=None):
 def _month_date_range(year, month):
     local_timezone = _configured_timezone()
     start_local = datetime(year, month, 1, tzinfo=local_timezone)
-    last_day = calendar.monthrange(year, month)[1]
     if month == 12:
         end_local = datetime(year + 1, 1, 1, tzinfo=local_timezone)
     else:

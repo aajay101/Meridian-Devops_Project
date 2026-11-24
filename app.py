@@ -2,7 +2,6 @@ import json
 import logging
 import hmac
 import os
-import secrets
 import sqlite3
 
 from flask import Flask, current_app, jsonify, request, send_from_directory, session

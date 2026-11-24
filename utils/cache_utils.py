@@ -187,10 +187,6 @@ def invalidate_student_resume(user_id):
     )
 
 
-def invalidate_company_dashboard(company_profile_id):
-    _delete_keys(f"company:{company_profile_id}:dashboard")
-
-
 def _invalidate_company_dashboard_for_drive(drive_id):
     from models import PlacementDrive
     drive = PlacementDrive.query.get(drive_id)
