@@ -63,3 +63,7 @@ Thumbs.db
 # Security
 credentials.txt
 demo_credentials.md
+
+# Local credentials
+credentials/
+secrets/
