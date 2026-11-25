@@ -50,7 +50,7 @@ def _safe_json_loads(raw, default=None):
 
 
 def _as_utc(value):
-    """Normalize an ISO datetime to UTC before SQLite drops timezone info."""
+    """Normalize incoming datetime values to UTC before database persistence."""
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 

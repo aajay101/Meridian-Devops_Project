@@ -3,7 +3,7 @@
     <div class="auth-card">
       <div class="auth-header">
         <i class="bi bi-mortarboard-fill text-primary auth-logo"></i>
-        <h1 class="auth-title">Recruit Link</h1>
+        <h1 class="auth-title">Meridian</h1>
       </div>
       <router-view />
     </div>

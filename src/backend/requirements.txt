@@ -2,8 +2,12 @@ Flask
 Flask-SQLAlchemy
 Flask-Login
 Flask-Caching
+Flask-Migrate
 Werkzeug
+psycopg[binary]
 redis
 celery
+celery-redbeat
 gunicorn
 python-dotenv
+pytest

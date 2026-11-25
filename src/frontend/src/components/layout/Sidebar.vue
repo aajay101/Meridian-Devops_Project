@@ -2,7 +2,7 @@
   <nav class="sidebar" :class="{ 'sidebar-open': isOpen }">
     <div class="sidebar-header">
       <div class="sidebar-logo-mark">P</div>
-      <span class="sidebar-app-name">Recruit Link</span>
+      <span class="sidebar-app-name">Meridian</span>
     </div>
 
     <div class="sidebar-nav-scroll">
