@@ -1,20 +1,12 @@
+
 from datetime import datetime, timezone
 
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
+
 db = SQLAlchemy()
-
-
-@event.listens_for(Engine, "connect")
-def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
-    if dbapi_connection.__class__.__module__ == "sqlite3":
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
 
 
 def utc_now():
@@ -24,12 +16,15 @@ def utc_now():
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    # Nullable during the legacy-account backfill. New registrations require it.
     phone_number = db.Column(db.String(10), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(30), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
 
     student_profile = db.relationship(
         "StudentProfile",
@@ -37,6 +32,7 @@ class User(UserMixin, db.Model):
         cascade="all, delete-orphan",
         uselist=False,
     )
+
     company_profile = db.relationship(
         "CompanyProfile",
         back_populates="user",
@@ -53,15 +49,25 @@ class User(UserMixin, db.Model):
 
 class StudentProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id"),
+        unique=True,
+        nullable=False,
+    )
     name = db.Column(db.String(120), nullable=False)
     branch = db.Column(db.String(80), nullable=False)
     cgpa = db.Column(db.Float, nullable=False)
     year = db.Column(db.Integer, nullable=False)
     resume_path = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
 
     user = db.relationship("User", back_populates="student_profile")
+
     applications = db.relationship(
         "Application",
         back_populates="student_profile",
@@ -71,14 +77,28 @@ class StudentProfile(db.Model):
 
 class CompanyProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id"),
+        unique=True,
+        nullable=False,
+    )
     company_name = db.Column(db.String(120), nullable=False)
     hr_contact = db.Column(db.String(120), nullable=False)
     website = db.Column(db.String(255), nullable=True)
-    approval_status = db.Column(db.String(30), default="Pending", nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+    approval_status = db.Column(
+        db.String(30),
+        default="Pending",
+        nullable=False,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
 
     user = db.relationship("User", back_populates="company_profile")
+
     placement_drives = db.relationship(
         "PlacementDrive",
         back_populates="company_profile",
@@ -93,18 +113,52 @@ class PlacementDrive(db.Model):
         db.ForeignKey("company_profile.id"),
         nullable=False,
     )
+
     job_title = db.Column(db.String(120), nullable=False)
     job_description = db.Column(db.Text, nullable=False)
-    eligibility_branches = db.Column(db.Text, nullable=False, default="[]")
-    eligibility_branch = db.Column(db.String(80), nullable=False)  # DEPRECATED: use eligibility_branches
+
+    eligibility_branches = db.Column(
+        db.Text,
+        nullable=False,
+        default="[]",
+    )
+
+    eligibility_branch = db.Column(
+        db.String(80),
+        nullable=False,
+    )  # Deprecated: use eligibility_branches
+
     eligibility_cgpa = db.Column(db.Float, nullable=False)
     eligibility_year = db.Column(db.Integer, nullable=False)
-    eligibility_year_mode = db.Column(db.String(10), nullable=False, default="exact")
-    application_deadline = db.Column(db.DateTime(timezone=True), nullable=False)
-    status = db.Column(db.String(30), default="Pending", nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
 
-    company_profile = db.relationship("CompanyProfile", back_populates="placement_drives")
+    eligibility_year_mode = db.Column(
+        db.String(10),
+        nullable=False,
+        default="exact",
+    )
+
+    application_deadline = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+    )
+
+    status = db.Column(
+        db.String(30),
+        default="Pending",
+        nullable=False,
+    )
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+
+    company_profile = db.relationship(
+        "CompanyProfile",
+        back_populates="placement_drives",
+    )
+
     applications = db.relationship(
         "Application",
         back_populates="drive",
@@ -114,46 +168,102 @@ class PlacementDrive(db.Model):
 
 class Application(db.Model):
     __table_args__ = (
-        db.UniqueConstraint("student_profile_id", "drive_id", name="uq_student_drive"),
+        db.UniqueConstraint(
+            "student_profile_id",
+            "drive_id",
+            name="uq_student_drive",
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
+
     student_profile_id = db.Column(
         db.Integer,
         db.ForeignKey("student_profile.id"),
         nullable=False,
     )
-    drive_id = db.Column(db.Integer, db.ForeignKey("placement_drive.id"), nullable=False)
+
+    drive_id = db.Column(
+        db.Integer,
+        db.ForeignKey("placement_drive.id"),
+        nullable=False,
+    )
+
     application_date = db.Column(
         db.DateTime(timezone=True),
         default=utc_now,
         nullable=False,
     )
-    status = db.Column(db.String(30), default="Applied", nullable=False)
+
+    status = db.Column(
+        db.String(30),
+        default="Applied",
+        nullable=False,
+    )
+
     resume_path = db.Column(db.String(255), nullable=True)
     interview_datetime = db.Column(db.DateTime(timezone=True), nullable=True)
     interview_location = db.Column(db.String(255), nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     selection_date = db.Column(db.DateTime(timezone=True), nullable=True)
-    offer_status = db.Column(db.String(20), nullable=True)  # NULL, "Pending", "Accepted", "Declined", "Auto Declined"
 
-    student_profile = db.relationship("StudentProfile", back_populates="applications")
-    drive = db.relationship("PlacementDrive", back_populates="applications")
+    offer_status = db.Column(
+        db.String(20),
+        nullable=True,
+    )  # NULL, Pending, Accepted, Declined, Auto Declined
+
+    student_profile = db.relationship(
+        "StudentProfile",
+        back_populates="applications",
+    )
+
+    drive = db.relationship(
+        "PlacementDrive",
+        back_populates="applications",
+    )
 
 
 class ExportJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    student_profile_id = db.Column(
-        db.Integer, db.ForeignKey("student_profile.id"), nullable=False
+
+    task_id = db.Column(
+        db.String(255),
+        unique=True,
+        nullable=False,
+        index=True,
     )
-    created_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
+
+    student_profile_id = db.Column(
+        db.Integer,
+        db.ForeignKey("student_profile.id"),
+        nullable=False,
+    )
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
 
 
 class ReminderRun(db.Model):
     """Durable idempotency record for the daily reminder batch."""
 
     run_date = db.Column(db.Date, primary_key=True)
-    status = db.Column(db.String(20), nullable=False, default="running")
-    started_at = db.Column(db.DateTime(timezone=True), default=utc_now, nullable=False)
-    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="running",
+    )
+
+    started_at = db.Column(
+        db.DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+
+    completed_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True,
+    )

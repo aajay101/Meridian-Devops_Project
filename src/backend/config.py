@@ -1,85 +1,296 @@
+
 import os
-from pathlib import Path
+
+from sqlalchemy.engine import URL
 
 try:
     from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = None
 
-if load_dotenv:
     load_dotenv()
+except ImportError:
+    pass
 
-BASE_DIR = Path(__file__).resolve().parent
-INSTANCE_DIR = BASE_DIR / "instance"
-INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 
+# ---------------------------------------------------------
+# Environment variable helpers
+# ---------------------------------------------------------
+
+def get_bool_env(name, default="false"):
+    """Convert an environment variable into a boolean."""
+
+    return os.getenv(name, default).strip().lower() in {
+        "true",
+        "1",
+        "yes",
+        "on",
+    }
+
+
+def get_int_env(name, default):
+    """Read an integer environment variable safely."""
+
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{name} must be a valid integer."
+        ) from exc
+
+
+# ---------------------------------------------------------
+# PostgreSQL configuration
+# ---------------------------------------------------------
+
+def get_database_url(environment):
+    """Build a PostgreSQL URL for the selected environment only."""
+
+    prefix = environment.upper()
+
+    required = [
+        f"{prefix}_DB_NAME",
+        f"{prefix}_DB_USER",
+        f"{prefix}_DB_PASSWORD",
+        "DB_HOST",
+        "DB_PORT",
+    ]
+
+    missing = [
+        key for key in required
+        if not os.getenv(key)
+    ]
+
+    if missing:
+        raise RuntimeError(
+            "Missing database environment variables: "
+            + ", ".join(missing)
+        )
+
+    try:
+        port = int(os.getenv("DB_PORT"))
+    except ValueError as exc:
+        raise RuntimeError(
+            "DB_PORT must be a valid integer."
+        ) from exc
+
+    return URL.create(
+        drivername="postgresql+psycopg",
+        username=os.getenv(f"{prefix}_DB_USER"),
+        password=os.getenv(f"{prefix}_DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=port,
+        database=os.getenv(f"{prefix}_DB_NAME"),
+    )
+
+
+# ---------------------------------------------------------
+# Base application configuration
+# ---------------------------------------------------------
 
 class BaseConfig:
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 
-    _database_url = os.getenv("DATABASE_URL")
-    SQLALCHEMY_DATABASE_URI = (
-        _database_url
-        if _database_url
-        else f"sqlite:///{INSTANCE_DIR / 'placement.db'}"
-    )
+    SECRET_KEY = os.getenv("SECRET_KEY")
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+    }
+
+    # -----------------------------------------------------
+    # Session and cookie configuration
+    # -----------------------------------------------------
+
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    # 127.0.0.1 avoids IPv6 (::1) double-timeout on Windows.
-    # localhost resolves to [::1, 127.0.0.1]; Redis tries both sequentially.
-    CACHE_REDIS_URL = os.getenv("CACHE_REDIS_URL", "redis://127.0.0.1:6379/1")
+    SESSION_COOKIE_SECURE = get_bool_env(
+        "SESSION_COOKIE_SECURE",
+        "false",
+    )
+
+    # -----------------------------------------------------
+    # Redis configuration
+    # -----------------------------------------------------
+
+    REDIS_URL = os.getenv(
+        "REDIS_URL",
+        "redis://localhost:6379/0",
+    )
+
+    CACHE_REDIS_URL = os.getenv(
+        "CACHE_REDIS_URL",
+        "redis://localhost:6379/1",
+    )
+
     CACHE_TYPE = "utils.cache_utils.SafeRedisCache"
-    CACHE_DEFAULT_TIMEOUT = int(os.getenv("CACHE_DEFAULT_TIMEOUT", "300"))
-    CACHE_OPTIONS = {"protocol": 2}
-    # Seconds before SafeRedisCache attempts a recovery probe after failure.
-    REDIS_FAILURE_COOLDOWN = int(os.getenv("REDIS_FAILURE_COOLDOWN", "30"))
 
-    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
-    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
-    CELERY_TIMEZONE = os.getenv("CELERY_TIMEZONE", "Asia/Kolkata")
+    CACHE_DEFAULT_TIMEOUT = get_int_env(
+        "CACHE_DEFAULT_TIMEOUT",
+        300,
+    )
 
-    MAIL_SERVER = os.getenv("MAIL_SERVER", "")
-    MAIL_PORT = int(os.getenv("MAIL_PORT", "587") or 587)
-    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
-    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+    CACHE_OPTIONS = {
+        "protocol": 2,
+    }
 
-    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@placement.local")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+    REDIS_FAILURE_COOLDOWN = get_int_env(
+        "REDIS_FAILURE_COOLDOWN",
+        30,
+    )
 
-    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:5000")
+    # -----------------------------------------------------
+    # Celery configuration
+    # -----------------------------------------------------
 
-    REMINDER_WINDOW_DAYS = int(os.getenv("REMINDER_WINDOW_DAYS", "3"))
-    REMINDER_HOUR = int(os.getenv("REMINDER_HOUR", "8"))
-    REMINDER_MINUTE = int(os.getenv("REMINDER_MINUTE", "0"))
+    CELERY_BROKER_URL = os.getenv(
+        "CELERY_BROKER_URL",
+        REDIS_URL,
+    )
 
-    REPORT_HOUR = int(os.getenv("REPORT_HOUR", "6"))
-    REPORT_MINUTE = int(os.getenv("REPORT_MINUTE", "0"))
+    CELERY_RESULT_BACKEND = os.getenv(
+        "CELERY_RESULT_BACKEND",
+        REDIS_URL,
+    )
 
-    MAX_ACTIVE_OFFERS = int(os.getenv("MAX_ACTIVE_OFFERS", "3"))
+    CELERY_TIMEZONE = os.getenv(
+        "CELERY_TIMEZONE",
+        "Asia/Kolkata",
+    )
+
+    # -----------------------------------------------------
+    # Email configuration
+    # -----------------------------------------------------
+
+    MAIL_SERVER = os.getenv(
+        "MAIL_SERVER",
+        "",
+    )
+
+    MAIL_PORT = get_int_env(
+        "MAIL_PORT",
+        587,
+    )
+
+    MAIL_USERNAME = os.getenv(
+        "MAIL_USERNAME",
+        "",
+    )
+
+    MAIL_PASSWORD = os.getenv(
+        "MAIL_PASSWORD",
+        "",
+    )
+
+    MAIL_USE_TLS = get_bool_env(
+        "MAIL_USE_TLS",
+        "true",
+    )
+
+    # -----------------------------------------------------
+    # Administrator configuration
+    # -----------------------------------------------------
+
+    ADMIN_EMAIL = os.getenv(
+        "ADMIN_EMAIL",
+        "admin@placement.local",
+    )
+
+    ADMIN_PASSWORD = os.getenv(
+        "ADMIN_PASSWORD",
+    )
+
+    # -----------------------------------------------------
+    # Application URL configuration
+    # -----------------------------------------------------
+
+    APP_BASE_URL = os.getenv(
+        "APP_BASE_URL",
+        "http://127.0.0.1:8000",
+    )
+
+    # -----------------------------------------------------
+    # Placement reminder configuration
+    # -----------------------------------------------------
+
+    REMINDER_WINDOW_DAYS = get_int_env(
+        "REMINDER_WINDOW_DAYS",
+        3,
+    )
+
+    REMINDER_HOUR = get_int_env(
+        "REMINDER_HOUR",
+        8,
+    )
+
+    REMINDER_MINUTE = get_int_env(
+        "REMINDER_MINUTE",
+        0,
+    )
+
+    # -----------------------------------------------------
+    # Monthly report configuration
+    # -----------------------------------------------------
+
+    REPORT_HOUR = get_int_env(
+        "REPORT_HOUR",
+        6,
+    )
+
+    REPORT_MINUTE = get_int_env(
+        "REPORT_MINUTE",
+        0,
+    )
+
+    # -----------------------------------------------------
+    # Placement business rules
+    # -----------------------------------------------------
+
+    MAX_ACTIVE_OFFERS = get_int_env(
+        "MAX_ACTIVE_OFFERS",
+        3,
+    )
+
     if MAX_ACTIVE_OFFERS < 1:
         MAX_ACTIVE_OFFERS = 3
 
 
+# ---------------------------------------------------------
+# Development configuration
+# ---------------------------------------------------------
+
 class DevelopmentConfig(BaseConfig):
+
     DEBUG = True
     ENV = "development"
 
+    DATABASE_ENV = "DEV"
+
+
+# ---------------------------------------------------------
+# Testing configuration
+# ---------------------------------------------------------
 
 class TestConfig(BaseConfig):
+
     TESTING = True
+    ENV = "testing"
+
+    # Tests do not depend on Redis.
     CACHE_TYPE = "SimpleCache"
     CACHE_OPTIONS = {}
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
 
+    DATABASE_ENV = "TEST"
+
+
+# ---------------------------------------------------------
+# Production configuration
+# ---------------------------------------------------------
 
 class ProductionConfig(BaseConfig):
+
     DEBUG = False
     ENV = "production"
+
     SESSION_COOKIE_SECURE = True
-    SECRET_KEY = os.getenv("SECRET_KEY")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+    DATABASE_ENV = "PROD"
