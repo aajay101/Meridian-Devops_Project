@@ -6,7 +6,7 @@
         <div class="header-left">
           <router-link to="/" class="brand">
             <i class="bi bi-mortarboard-fill brand-icon"></i>
-            <span class="brand-name">Recruit Link</span>
+            <span class="brand-name">Meridian</span>
           </router-link>
         </div>
         <nav class="header-nav" :class="{ open: mobileNavOpen }">
@@ -187,7 +187,7 @@
       <div class="container">
         <div class="section-head">
           <div>
-            <h2 class="section-title">Top Colleges on Recruit Link</h2>
+            <h2 class="section-title">Top Colleges on Meridian</h2>
             <p class="section-sub">Premier institutions with active placement programs.</p>
           </div>
         </div>
@@ -226,7 +226,7 @@
     <section class="section section--alt" id="how-it-works">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title">How Recruit Link Works</h2>
+          <h2 class="section-title">How Meridian Works</h2>
         </div>
         <div class="steps">
           <div v-for="(step, i) in howItWorks" :key="i" class="step-card">
@@ -242,7 +242,7 @@
     <section class="section" id="why">
       <div class="container">
         <div class="section-head">
-          <h2 class="section-title">Why Recruit Link?</h2>
+          <h2 class="section-title">Why Meridian?</h2>
         </div>
         <div class="why-grid">
           <div v-for="item in whyItems" :key="item.title" class="why-card">
@@ -274,7 +274,7 @@
           <div class="footer-brand-col">
             <div class="footer-brand">
               <i class="bi bi-mortarboard-fill brand-icon"></i>
-              <span>Recruit Link</span>
+              <span>Meridian</span>
             </div>
             <p class="footer-about">
               A centralized platform for campus placements, helping students discover opportunities,
@@ -307,13 +307,13 @@
               <h5 class="footer-col-title">Platform</h5>
               <a href="#how-it-works">How It Works</a>
               <a href="#how-it-works">About</a>
-              <a href="mailto:placement@recruitlink.local">Contact</a>
+              <a href="mailto:placement@meridian.local">Contact</a>
               <a href="#how-it-works">Privacy</a>
             </div>
           </div>
         </div>
         <div class="footer-bottom">
-          <span>&copy; {{ currentYear }} Recruit Link</span>
+          <span>&copy; {{ currentYear }} Meridian</span>
           <span>Built for campus placements.</span>
         </div>
       </div>

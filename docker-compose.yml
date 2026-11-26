@@ -1,0 +1,250 @@
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: meridian-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: postgres
+
+      DEV_DB_NAME: ${DEV_DB_NAME:?Set DEV_DB_NAME in .env}
+      DEV_DB_USER: ${DEV_DB_USER:?Set DEV_DB_USER in .env}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD:?Set DEV_DB_PASSWORD in .env}
+
+      TEST_DB_NAME: ${TEST_DB_NAME:?Set TEST_DB_NAME in .env}
+      TEST_DB_USER: ${TEST_DB_USER:?Set TEST_DB_USER in .env}
+      TEST_DB_PASSWORD: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in .env}
+
+      PROD_DB_NAME: ${PROD_DB_NAME:?Set PROD_DB_NAME in .env}
+      PROD_DB_USER: ${PROD_DB_USER:?Set PROD_DB_USER in .env}
+      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD:?Set PROD_DB_PASSWORD in .env}
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - meridian_postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - meridian-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: meridian-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+
+    ports:
+      - "6380:6379"
+
+    volumes:
+      - meridian_redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - meridian-network
+
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+
+    container_name: meridian-backend
+    restart: unless-stopped
+
+    environment:
+      APP_ENV: development
+      PORT: 8000
+
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@placement.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+
+      DEV_DB_NAME: ${DEV_DB_NAME}
+      DEV_DB_USER: ${DEV_DB_USER}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CACHE_REDIS_URL: redis://redis:6379/1
+
+      APP_BASE_URL: http://localhost:5173
+      SESSION_COOKIE_SECURE: "false"
+
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - meridian_exports:/app/instance/exports
+      - meridian_resumes:/app/uploads/resumes
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - meridian-network
+
+  celery-worker:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+
+    container_name: meridian-celery-worker
+    restart: unless-stopped
+
+    environment:
+      APP_ENV: development
+
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@placement.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+
+      DEV_DB_NAME: ${DEV_DB_NAME}
+      DEV_DB_USER: ${DEV_DB_USER}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CACHE_REDIS_URL: redis://redis:6379/1
+
+      SESSION_COOKIE_SECURE: "false"
+
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+
+    command:
+      ["celery", "-A", "celery_worker.celery", "worker", "--loglevel=info", "--concurrency=2"]
+
+    volumes:
+      - meridian_exports:/app/instance/exports
+      - meridian_resumes:/app/uploads/resumes
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - meridian-network
+
+  celery-beat:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+
+    container_name: meridian-celery-beat
+    restart: unless-stopped
+
+    environment:
+      APP_ENV: development
+
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@placement.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+
+      DEV_DB_NAME: ${DEV_DB_NAME}
+      DEV_DB_USER: ${DEV_DB_USER}
+      DEV_DB_PASSWORD: ${DEV_DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CACHE_REDIS_URL: redis://redis:6379/1
+      REDBEAT_REDIS_URL: redis://redis:6379/2
+
+      SESSION_COOKIE_SECURE: "false"
+
+      MAIL_SERVER: ${MAIL_SERVER:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-true}
+
+    command:
+      - celery
+      - -A
+      - celery_worker.celery
+      - beat
+      - --scheduler=redbeat.RedBeatScheduler
+      - --loglevel=info
+
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    networks:
+      - meridian-network
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+
+    container_name: meridian-frontend
+    restart: unless-stopped
+
+    ports:
+      - "5173:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - meridian-network
+
+volumes:
+  meridian_postgres_data:
+  meridian_redis_data:
+  meridian_exports:
+  meridian_resumes:
+
+networks:
+  meridian-network:
+    driver: bridge
