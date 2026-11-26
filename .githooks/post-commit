@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Meridian successful commit audit hook
+
+BRANCH=$(git branch --show-current)
+GIT_NAME=$(git config user.name)
+GIT_EMAIL=$(git config user.email)
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+COMMIT_SHA=$(git rev-parse HEAD)
+COMMIT_MESSAGE=$(git log -1 --pretty=%s)
+
+AUDIT_DIR="$(git rev-parse --git-dir)/meridian-audit"
+AUDIT_LOG="$AUDIT_DIR/successful-commits.log"
+
+mkdir -p "$AUDIT_DIR"
+
+printf '%s | Developer: %s | Email: %s | Branch: %s | Commit: %s | Message: %s\n' \
+"$TIMESTAMP" "$GIT_NAME" "$GIT_EMAIL" "$BRANCH" "$COMMIT_SHA" "$COMMIT_MESSAGE" >> "$AUDIT_LOG"
+
+echo ""
+echo "======================================"
+echo " MERIDIAN AUDIT"
+echo "======================================"
+echo "Successful commit recorded."
+echo "Developer : $GIT_NAME"
+echo "Branch    : $BRANCH"
+echo "Commit SHA: $COMMIT_SHA"
+echo ""

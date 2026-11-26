@@ -1,0 +1,79 @@
+#!/bin/sh
+
+# Meridian pre-commit safety and audit hook
+
+# ============================================================
+# MERIDIAN GIT HOOK SETUP
+#
+# After syncing with main, configure Git hooks once:
+#
+# WINDOWS (PowerShell):
+# git config core.hooksPath .githooks
+#
+# macOS / Linux (Terminal):
+# git config core.hooksPath .githooks
+#
+# Both operating systems use the same command.
+# Run it from the repository root.
+# ============================================================
+
+BRANCH=$(git branch --show-current)
+GIT_NAME=$(git config user.name)
+GIT_EMAIL=$(git config user.email)
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+AUDIT_DIR="$(git rev-parse --git-dir)/meridian-audit"
+AUDIT_LOG="$AUDIT_DIR/commit-attempts.log"
+
+mkdir -p "$AUDIT_DIR"
+
+log_event() {
+    printf '%s | Developer: %s | Email: %s | Branch: %s | Event: %s | Result: %s\n' \
+    "$TIMESTAMP" "$GIT_NAME" "$GIT_EMAIL" "$BRANCH" "$1" "$2" >> "$AUDIT_LOG"
+}
+
+echo ""
+echo "======================================"
+echo " MERIDIAN COMMIT CONFIRMATION"
+echo "======================================"
+echo "Developer : $GIT_NAME"
+echo "Branch    : $BRANCH"
+echo ""
+
+# MAIN branch confirmation
+if [ "$BRANCH" = "main" ]; then
+
+    echo "WARNING: YOU ARE COMMITTING ON MAIN."
+    echo "Changes to main should go through a Pull Request."
+    echo ""
+
+    printf "Type COMMIT TO MAIN to continue: " > /dev/tty
+    read CONFIRM < /dev/tty
+
+    if [ "$CONFIRM" != "COMMIT TO MAIN" ]; then
+        log_event "COMMIT" "CANCELLED"
+        echo "Commit cancelled."
+        exit 1
+    fi
+
+# Feature branch confirmation
+else
+
+    printf "Confirm commit to $BRANCH? (Y/N): " > /dev/tty
+    read CONFIRM < /dev/tty
+
+    case "$CONFIRM" in
+        Y|y|YES|yes)
+            ;;
+        *)
+            log_event "COMMIT" "CANCELLED"
+            echo "Commit cancelled."
+            exit 1
+            ;;
+    esac
+
+fi
+
+log_event "COMMIT" "CONFIRMED"
+
+exit 0
