@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# Meridian merge safety hook
+
+CURRENT_BRANCH=$(git branch --show-current)
+
+# Block local merge commits directly into main.
+if [ "$CURRENT_BRANCH" = "main" ]; then
+    echo ""
+    echo "======================================"
+    echo " MERIDIAN MERGE PROTECTION"
+    echo "======================================"
+    echo "Direct merges into main are blocked."
+    echo "Use a Pull Request on GitHub instead."
+    echo ""
+    exit 1
+fi
+
+# Identify the incoming branch.
+MERGING_BRANCH=""
+
+MERGE_HEAD_SHA=$(git rev-parse -q --verify MERGE_HEAD 2>/dev/null)
+
+if [ -n "$MERGE_HEAD_SHA" ]; then
+    MERGING_BRANCH=$(git for-each-ref \
+        --contains="$MERGE_HEAD_SHA" \
+        --format='%(refname:short)' \
+        refs/heads refs/remotes |
+        grep -v "^$CURRENT_BRANCH$" |
+        head -n 1)
+fi
+
+if [ -z "$MERGING_BRANCH" ]; then
+    MERGING_BRANCH="unknown branch"
+fi
+
+# Confirm the merge.
+echo ""
+echo "======================================"
+echo " MERIDIAN MERGE CONFIRMATION"
+echo "======================================"
+echo "Current branch : $CURRENT_BRANCH"
+echo "Merging        : $MERGING_BRANCH"
+echo ""
+
+printf "Continue with this merge? (Y/N): " > /dev/tty
+read CONFIRM < /dev/tty
+
+case "$CONFIRM" in
+    Y|y|YES|yes)
+        echo "Merge confirmed."
+        exit 0
+        ;;
+    *)
+        echo "Merge cancelled."
+        exit 1
+        ;;
+esac
