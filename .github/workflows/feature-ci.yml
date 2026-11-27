@@ -1,0 +1,92 @@
+
+name: Meridian Feature CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+jobs:
+  # -------------------------------------------------
+  # JOB 1: BACKEND TESTS
+  # -------------------------------------------------
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: meridian_test
+          POSTGRES_USER: meridian_test_user
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meridian_test_user -d meridian_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: testing
+      SECRET_KEY: ci-test-secret-key
+      TEST_DB_NAME: meridian_test
+      TEST_DB_USER: meridian_test_user
+      TEST_DB_PASSWORD: ci-test-password
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      ADMIN_PASSWORD: ci-test-admin-password
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r src/backend/requirements.txt
+
+      - name: Run backend tests
+        run: python -m pytest tests/backend -v
+
+  # -------------------------------------------------
+  # JOB 2: FRONTEND BUILD
+  # -------------------------------------------------
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
