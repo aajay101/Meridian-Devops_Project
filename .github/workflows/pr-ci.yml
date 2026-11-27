@@ -1,0 +1,180 @@
+
+name: Meridian Pull Request CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+
+  # -------------------------------------------------
+  # JOB 1: BACKEND TESTS
+  # -------------------------------------------------
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: meridian_test
+          POSTGRES_USER: meridian_test_user
+          POSTGRES_PASSWORD: ci-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meridian_test_user -d meridian_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: testing
+      SECRET_KEY: ci-test-secret-key
+      TEST_DB_NAME: meridian_test
+      TEST_DB_USER: meridian_test_user
+      TEST_DB_PASSWORD: ci-test-password
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      ADMIN_PASSWORD: ci-test-admin-password
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r src/backend/requirements.txt
+
+      - name: Run backend tests
+        run: |
+          python -m pytest tests/backend -v \
+            --junitxml=backend-test-results.xml
+
+      - name: Upload backend test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: backend-test-results.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  # -------------------------------------------------
+  # JOB 2: FRONTEND BUILD
+  # -------------------------------------------------
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: src/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+  # -------------------------------------------------
+  # JOB 3: DOCKER COMPOSE INTEGRATION
+  # -------------------------------------------------
+
+  docker-integration:
+    name: Docker Compose Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      POSTGRES_ADMIN_USER: meridian_ci_admin
+      POSTGRES_ADMIN_PASSWORD: ci-postgres-admin-password
+
+      DEV_DB_NAME: meridian_dev
+      DEV_DB_USER: meridian_dev_user
+      DEV_DB_PASSWORD: ci-dev-password
+
+      TEST_DB_NAME: meridian_test
+      TEST_DB_USER: meridian_test_user
+      TEST_DB_PASSWORD: ci-test-password
+
+      PROD_DB_NAME: meridian_prod
+      PROD_DB_USER: meridian_prod_user
+      PROD_DB_PASSWORD: ci-prod-password
+
+      SECRET_KEY: ci-meridian-secret-key
+      ADMIN_PASSWORD: ci-meridian-admin-password
+
+      ADMIN_EMAIL: admin@placement.local
+      APP_BASE_URL: http://localhost:5173
+      SESSION_COOKIE_SECURE: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build and start all services
+        run: |
+          docker compose up -d --build --wait --wait-timeout 180
+
+      - name: Display container status
+        run: docker compose ps
+
+      - name: Apply database migrations
+        run: |
+          docker compose exec -T backend flask db upgrade
+
+      - name: Verify backend health
+        run: |
+          curl --fail --retry 12 --retry-delay 5 \
+            --retry-connrefused \
+            http://localhost:8000/health
+
+      - name: Verify frontend response
+        run: |
+          curl --fail --retry 12 --retry-delay 5 \
+            --retry-connrefused \
+            http://localhost:5173/
+
+      - name: Verify Nginx backend proxy
+        run: |
+          curl --fail --retry 12 --retry-delay 5 \
+            --retry-connrefused \
+            http://localhost:5173/health
+
+      - name: Display container logs on failure
+        if: failure()
+        run: docker compose logs --no-color || true
+
+      - name: Stop and remove CI containers
+        if: always()
+        run: docker compose down --volumes --remove-orphans
